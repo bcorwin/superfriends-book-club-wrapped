@@ -1,0 +1,354 @@
+---
+title: "Superfriends Book Club"
+subtitle: "2023 Wrapped"
+output:
+  html_document:
+    fig_height: 8
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+library(readr)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(kableExtra)
+```
+
+```{r process-data}
+bookmaker_info <- data.frame(
+  bookmaker = as.ordered(c("Amanda", "Ben", "Brandon", "Hannah", "Healy", "Julia", "Kevin", "Ryan", "Sam")),
+  color = c("#1f78bf", "#b2df8a", "#cab2d6", "#e31a1c", "#ff6d01", "#ffff99", "#33a02c", "#a6cee3", "#6a3d9a"),
+  pair = c("Ben", "Amanda", NA, "Kevin", "Sam", "Ryan", "Hannah", "Julia", "Sam")
+)
+bookmaker_info$pair <- ordered(bookmaker_info$pair, levels = bookmaker_info$bookmaker)
+bookmaker_info$pair_name <- with(bookmaker_info, {
+  if_else(!is.na(pair),
+          paste(pmax(bookmaker, pair), "&", pmin(bookmaker, pair)),
+          NA_character_)
+})
+
+rating_data <- read_csv("~/Downloads/SF Book Club Ratings - Ratings(3).csv", show_col_types = FALSE)
+
+ratings <- rating_data %>%
+  select(-`Healy's Recap`, -Average, -SD, -Rating) %>%
+  rename(
+    date = `Book Club Date`,
+    bookmaker = Bookmaker,
+    book = Book
+  ) %>%
+  mutate(
+    date = as.Date(date, format="%m/%d/%Y"),
+    book = gsub(":.*", "", book)  # Remove subtitles
+  ) %>%
+  pivot_longer(
+    -c(date, bookmaker, book),
+    names_to = "rater",
+    values_to = "rating"
+  ) %>%
+  drop_na() %>%
+  mutate(rating = nchar(rating))
+
+ratings$bookmaker <- ordered(ratings$bookmaker, levels = bookmaker_info$bookmaker)
+ratings$rater <- ordered(ratings$rater, levels = bookmaker_info$bookmaker)
+
+book_to_maker <- ratings %>%
+  select(book, bookmaker) %>%
+  distinct()
+
+get_ratings_summary <- function(group) {
+  ratings %>%
+    group_by_at(group) %>%
+    summarise(
+      average = mean(rating),
+      stdev = sd(rating),
+      n = n(),
+      book_count = n_distinct(book)
+    )
+}
+
+bookmakers <- get_ratings_summary("bookmaker")
+books <- get_ratings_summary("book") %>%
+  join(book_to_maker, by = "book")
+raters <- get_ratings_summary("rater")
+raters_bookmakers <- get_ratings_summary(c("rater", "bookmaker")) %>%
+  filter(rater != "Brandon", bookmaker != "Brandon") %>%
+  select(rater, bookmaker, average) %>%
+  pivot_wider(names_from = bookmaker, values_from = average) %>%
+  as.data.frame()
+row.names(raters_bookmakers) <- raters_bookmakers$rater
+raters_bookmakers$rater <- NULL
+
+ratings_mat <- ratings %>%
+  filter(rater %in% raters$rater[raters$n > 5]) %>%
+  select(book, rater, rating) %>%
+  pivot_wider(names_from = rater, values_from = rating) %>%
+  as.data.frame()
+row.names(ratings_mat) <- ratings_mat$book
+ratings_mat <- select(ratings_mat, -book)
+
+cors <- cor(ratings_mat, use = "pairwise.complete.obs")
+cor.mtest <- function(mat, ...) {
+    mat <- as.matrix(mat)
+    n <- ncol(mat)
+    p.mat<- matrix(NA, n, n)
+    diag(p.mat) <- 0
+    for (i in 1:(n - 1)) {
+        for (j in (i + 1):n) {
+            tmp <- cor.test(mat[, i], mat[, j], ...)
+            p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+        }
+    }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
+  p.mat
+}
+p.mat <- cor.mtest(ratings_mat)
+
+cors_long <- as.data.frame.table(cors, responseName = "cor", stringsAsFactors = FALSE) %>%
+  filter(Var1 > Var2) %>%
+  mutate(pair_name = paste(Var1, "&", Var2)) %>%
+  select(-Var1, -Var2) %>%
+  arrange(-cor)
+
+get_best_worst <- function(df_name, value, type) {
+  df <- get(df_name)
+  target_value <- ifelse(type == "best", max(df[value]), min(df[value]))
+  result <- df[df[value] == target_value, ] %>%
+    pull(1)
+  return(result)
+}
+
+results_to_build <- expand.grid(
+  c("books", "raters", "bookmakers"),
+  c("average", "stdev"),
+  c("best", "worst"),
+  stringsAsFactors = FALSE
+)
+
+results <- list()
+
+results[["summary"]] <- list(
+  "ratings" = nrow(ratings),
+  "books" = nrow(books),
+  "cycle" = max(bookmakers$book_count),
+  "days_since" = as.numeric(difftime(Sys.Date(), min(ratings$date), units = "d"))
+)
+  
+for(i in 1:nrow(results_to_build)) {
+  df_name <- results_to_build[i, "Var1"]
+  value <- results_to_build[i, "Var2"]
+  type <- results_to_build[i, "Var3"]
+  result <- get_best_worst(df = df_name, value = value, type = type)
+  results[[df_name]][[value]][[type]] <- result
+}
+
+results[["cors"]][["pair"]][["max"]] <- cors_long[[which.max(cors_long$cor),
+                                                   "pair_name"]]
+results[["cors"]][["pair"]][["min"]] <- cors_long[[which.min(cors_long$cor),
+                                                   "pair_name"]]
+```
+
+```{r make-functions}
+make_bar_plot <- function(df,
+                          group,
+                          metric,
+                          color="bookmaker",
+                          show_n=NA) {
+  df <- df %>%
+    arrange(across(metric, desc))
+
+  xaxis_title <- switch(metric,
+    "average" = "Avg Rating",
+    "std" = "Std. Deviation"
+  )
+  
+  make_plot <- function(df, title="") {
+    plot_ly(
+        type="bar",
+        y=df[[group]],
+        x=df[[metric]],
+        color=df[[color]],
+        colors = bookmaker_info$color,
+        # legendgroup="group1",  # With this, you can't filter to one legend item
+        orientation="h"
+      ) %>%
+      layout(
+        yaxis = list(
+          categoryorder = "total ascending",
+          title = title
+        ),
+        xaxis = list(title = xaxis_title),
+        showlegend = color != group
+      )
+    }
+    
+    if(is.na(show_n)) {
+      p <- make_plot(df)  
+    } else {
+      if(2*show_n > nrow(df)) {
+        stop("invalid show_n value")
+      }
+      
+      p1 <- df %>%
+        slice_head(n = show_n) %>%
+        make_plot(title = paste("Top", show_n))
+      
+      p2 <- df %>%
+        slice_tail(n = show_n) %>%
+        make_plot(title = paste("Bottom", show_n))
+      
+      p <- subplot(p1, p2, nrows = 2, shareX = TRUE, titleY = TRUE)
+    }
+    
+    p
+}
+```
+
+# Summary Data
+
+- Books read: `r results$summary$books`
+- Number of ratings: `r results$summary$ratings`
+- Current cycle: `r results$summary$cycle`
+- Avg days between meetings: `r round(results$summary$days_since / results$summary$books, 0)`
+
+# Books
+## Best / Worst
+
+Best: `r results$books$average$best`
+
+Worst: `r results$books$average$worst`
+
+```{r books-ratings}
+make_bar_plot(books, "book", "average")
+```
+
+## Most / Least Polarizing
+
+Most: `r results$books$stdev$best`
+
+Least: `r results$books$stdev$worst`
+
+```{r books-stdev}
+make_bar_plot(books, "book", "stdev")
+```
+
+# Bookmakers
+
+## Best / Worst
+
+Best: `r results$bookmakers$average$best`
+
+Worst: `r results$bookmakers$average$worst`
+
+```{r bookmakers-ratings}
+make_bar_plot(bookmakers, "bookmaker", "average")
+```
+
+## Most / Least Polarizing
+
+Most: `r results$bookmakers$stdev$best`
+
+Least: `r results$bookmakers$stdev$worst`
+
+```{r bookmakers-stdev}
+make_bar_plot(bookmakers, "bookmaker", "stdev")
+```
+
+# Raters
+
+## Highest / Lowest
+Highest: `r results$raters$average$best`
+
+Lowest: `r results$raters$average$worst`
+
+```{r raters-avg}
+make_bar_plot(raters, "rater", "average", color="rater")
+```
+
+## Most / Least Variable
+Most: `r results$raters$stdev$best`
+
+Least: `r results$raters$stdev$worst`
+
+```{r raters-stdev}
+make_bar_plot(raters, "rater", "stdev", color="rater")
+```
+
+## Favorite / Least Favorite Bookmaker
+
+```{r}
+max_values <- raters_bookmakers == apply(raters_bookmakers, 1, max)
+min_values <- raters_bookmakers == apply(raters_bookmakers, 1, min)
+
+df <- raters_bookmakers %>%
+  mutate(across(where(is.numeric), sprintf, fmt = '%.2f'))
+
+df[max_values] <- cell_spec(df[max_values],
+                            format =  "html",
+                            background = "#ef8a62")
+df[min_values] <- cell_spec(df[min_values],
+                            format =  "html",
+                            background = "#67a9cf")
+df %>%
+  kable(format = "html", escape = FALSE, booktabs=TRUE) %>%
+  kable_styling() %>%
+  add_header_above(c(" "=1, "Bookmaker" = ncol(df)))
+```
+
+# Preference Similarity
+
+## Most / Least Similar
+
+Most: `r results$cors$pair$max`
+
+Least: `r results$cors$pair$min`
+
+```{r corr-plot}
+mat <- cors
+diag(mat) <- NA
+max_cors <- apply(mat, 1, max, na.rm = TRUE)
+min_cors <- apply(mat, 1, min, na.rm = TRUE)
+
+p <- corrplot::corrplot(
+  cors,
+  method = 'ellipse',
+  order = 'hclust',
+  addrect = 2,
+  type='full',
+  diag=FALSE,
+  addCoef.col = "black",
+  number.cex = .75,
+  tl.col="black",
+  tl.pos = 'd',
+  tl.cex = 0.75,
+  p.mat = mat == max_cors | mat == min_cors,
+  insig = "pch",
+  pch = 0,
+  pch.cex = 5,
+  pch.col = "#D3D3D3"
+)
+```
+
+## Couple & Sibling Pairs
+```{r}
+df <- cors_long %>%
+  filter(pair_name %in% bookmaker_info$pair_name) %>%
+  arrange(desc(cor)) %>%
+  mutate(cor = scales::label_percent(accuracy=1)(cor))
+row.names(df) <- df$Pair
+df$Pair <- NULL
+
+df %>%  
+  kable(col.names = NULL) %>%
+  kable_styling(full_width = FALSE)
+```
