@@ -39,6 +39,17 @@ bookmaker_info$pair_name <- with(bookmaker_info, {
 })
 
 rating_data <- read_csv("~/Downloads/SF Book Club Ratings - Ratings(3).csv", show_col_types = FALSE)
+meta_data <- read_csv("~/Downloads/SF Book Club Ratings - Meta.csv", show_col_types = FALSE) %>%
+  select(-Link) %>%
+  rename(
+    goodreads_rating = Rating,
+    book = Book,
+    year = Year,
+    pages = Pages
+  ) %>%
+  mutate(
+    book = gsub(":.*", "", book)  # Remove subtitles
+  )
 
 ratings <- rating_data %>%
   select(-`Healy's Recap`, -Average, -SD, -Rating) %>%
@@ -57,7 +68,8 @@ ratings <- rating_data %>%
     values_to = "rating"
   ) %>%
   drop_na() %>%
-  mutate(rating = nchar(rating))
+  mutate(rating = nchar(rating)) %>%
+  left_join(meta_data, by = "book")
 
 ratings$bookmaker <- ordered(ratings$bookmaker, levels = bookmaker_info$bookmaker)
 ratings$rater <- ordered(ratings$rater, levels = bookmaker_info$bookmaker)
@@ -351,4 +363,21 @@ df$Pair <- NULL
 df %>%  
   kable(col.names = NULL) %>%
   kable_styling(full_width = FALSE)
+```
+
+## WIP
+```{r}
+plot(density(ratings$pages))
+plot(density(ratings$year))
+plot(density(ratings$goodreads_rating))
+
+plot_ly(ratings, x=~pages, y=~rating, color = ~rater)
+plot_ly(ratings, x=~year, y=~rating, color = ~rater)
+plot_ly(ratings, x=~goodreads_rating, y=~rating, color = ~rater)
+
+chk <- ratings %>%
+  group_by(rater) %>%
+  summarise(
+    across(c(year, pages, goodreads_rating), ~ cor(.x, rating))
+  )
 ```
