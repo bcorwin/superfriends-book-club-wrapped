@@ -9,6 +9,8 @@ output:
     toc_float:
       collapsed: false
       smooth_scroll: false
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -23,6 +25,7 @@ library(dplyr)
 library(tidyr)
 library(plotly)
 library(kableExtra)
+library(forcats)
 ```
 
 ```{r process-data}
@@ -38,17 +41,26 @@ bookmaker_info$pair_name <- with(bookmaker_info, {
           NA_character_)
 })
 
-rating_data <- read_csv("~/Downloads/SF Book Club Ratings - Ratings(3).csv", show_col_types = FALSE)
-meta_data <- read_csv("~/Downloads/SF Book Club Ratings - Meta.csv", show_col_types = FALSE) %>%
+rating_data <- read_csv("Data/SF Book Club Ratings - Ratings.csv", show_col_types = FALSE)
+meta_data <- read_csv("Data/SF Book Club Ratings - Meta.csv", show_col_types = FALSE) %>%
   select(-Link) %>%
   rename(
     goodreads_rating = Rating,
     book = Book,
     year = Year,
-    pages = Pages
+    pages = Pages,
+    genre = Genre,
+    gender = `Author Gender`
   ) %>%
   mutate(
-    book = gsub(":.*", "", book)  # Remove subtitles
+    book = gsub(":.*", "", book),  # Remove subtitles
+    genre = as.factor(genre),
+    gender = factor(
+      gender,
+      c("M", "F", "N", "O"),
+      c("Male", "Female", "Non-binary", "Other")
+    ) %>% replace_na("Other"),
+    gender = fct_lump_n(gender, 2)  # Keep most common 2, rest as Other
   )
 
 ratings <- rating_data %>%
@@ -353,6 +365,7 @@ p <- corrplot::corrplot(
 
 ## Couple & Sibling Pairs
 ```{r}
+# TODO: Make this a bar plot
 df <- cors_long %>%
   filter(pair_name %in% bookmaker_info$pair_name) %>%
   arrange(desc(cor)) %>%
@@ -367,17 +380,50 @@ df %>%
 
 ## WIP
 ```{r}
-plot(density(ratings$pages))
-plot(density(ratings$year))
-plot(density(ratings$goodreads_rating))
+plot(density(meta_data$pages))
+plot(density(meta_data$year))
+plot(density(meta_data$goodreads_rating))
+ggplot(meta_data, aes(x=genre)) + geom_bar()
+ggplot(meta_data, aes(x=gender)) + 
+  geom_bar() +
+  labs(
+    caption="Other includes Non-binary and multiple others of different genders."
+  )
 
-plot_ly(ratings, x=~pages, y=~rating, color = ~rater)
-plot_ly(ratings, x=~year, y=~rating, color = ~rater)
+plot_ly(ratings, x=~pages, y=~rating, color = ~rater)  # TODO: Split into short story / novel / essays?
+plot_ly(ratings, x=~year, y=~rating, color = ~rater)  # TODO: Split into classic / contemporary?
 plot_ly(ratings, x=~goodreads_rating, y=~rating, color = ~rater)
+# Box plot of ratings by Genre and Gender
 
-chk <- ratings %>%
+meta_cors <- ratings %>%
   group_by(rater) %>%
   summarise(
-    across(c(year, pages, goodreads_rating), ~ cor(.x, rating))
+    across(c(year, pages, goodreads_rating), ~ cor(.x, rating)),
   )
+
+make_bar_plot(meta_cors, "rater", "pages", color="rater")
+make_bar_plot(meta_cors, "rater", "year", color="rater")
+make_bar_plot(meta_cors, "rater", "goodreads_rating", color="rater")
+
+meta_ratings_diffs <- ratings %>%
+  select(rater, rating, genre, gender) %>%
+  pivot_longer(cols=-c(rater, rating)) %>%
+  pivot_wider(
+    id_cols = rater,
+    names_from = value,
+    values_from = rating,
+    values_fn=mean
+  ) %>%
+  mutate(
+    genre = `Fiction` - `Non-fiction`,
+    gender = `F` - `M`
+  ) %>%
+  select(rater, genre, gender)
+
+meta_ratings_diffs %>%
+  make_bar_plot("rater", "genre", color="rater")
+
+meta_ratings_diffs %>%
+  make_bar_plot("rater", "gender", color="rater")
+  
 ```
