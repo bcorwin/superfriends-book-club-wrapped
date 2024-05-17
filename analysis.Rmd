@@ -11,6 +11,8 @@ output:
       smooth_scroll: false
 editor_options: 
   chunk_output_type: inline
+params:
+  wrapped_year: 2023
 ---
 
 ```{r setup, include=FALSE}
@@ -91,14 +93,25 @@ book_to_maker <- ratings %>%
   distinct()
 
 get_ratings_summary <- function(group) {
-  ratings %>%
+  overall <- ratings %>%
     group_by_at(group) %>%
     summarise(
       average = mean(rating),
       stdev = sd(rating),
       n = n(),
       book_count = n_distinct(book)
-    )
+    ) %>%
+    mutate(period = "overall")
+  current <- ratings %>%
+    group_by_at(group) %>%
+    summarise(
+      average = mean(rating),
+      stdev = sd(rating),
+      n = n(),
+      book_count = n_distinct(book)
+    ) %>%
+    mutate(period = "current")
+  rbind(overall, current)
 }
 
 bookmakers <- get_ratings_summary("bookmaker")
@@ -107,7 +120,7 @@ books <- get_ratings_summary("book") %>%
 raters <- get_ratings_summary("rater")
 raters_bookmakers <- get_ratings_summary(c("rater", "bookmaker")) %>%
   filter(rater != "Brandon", bookmaker != "Brandon") %>%
-  select(rater, bookmaker, average) %>%
+  select(period, rater, bookmaker, average) %>%
   pivot_wider(names_from = bookmaker, values_from = average) %>%
   as.data.frame()
 row.names(raters_bookmakers) <- raters_bookmakers$rater
@@ -378,9 +391,17 @@ df %>%
   kable_styling(full_width = FALSE)
 ```
 
-## WIP
+# Meta data (pick a new name)
+
+## Book length
 ```{r}
 plot(density(meta_data$pages))
+hist(meta_data$pages)
+```
+
+## WIP
+```{r}
+
 plot(density(meta_data$year))
 plot(density(meta_data$goodreads_rating))
 ggplot(meta_data, aes(x=genre)) + geom_bar()
