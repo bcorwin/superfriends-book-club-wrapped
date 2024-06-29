@@ -19,6 +19,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update \
     && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends libcurl4-openssl-dev \
+    libfontconfig1-dev \
     libssl-dev \
     libxml2-dev \
     python3-pip \
