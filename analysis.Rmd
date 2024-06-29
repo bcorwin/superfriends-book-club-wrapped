@@ -9,6 +9,8 @@ output:
     toc_float:
       collapsed: false
       smooth_scroll: false
+params:
+  year: 2022
 ---
 
 ```{r setup, include=FALSE}
@@ -27,18 +29,54 @@ library(kableExtra)
 
 ```{r process-data}
 bookmaker_info <- data.frame(
-  bookmaker = as.ordered(c("Amanda", "Ben", "Brandon", "Hannah", "Healy", "Julia", "Kevin", "Ryan", "Sam")),
-  color = c("#1f78bf", "#b2df8a", "#cab2d6", "#e31a1c", "#ff6d01", "#ffff99", "#33a02c", "#a6cee3", "#6a3d9a"),
-  pair = c("Ben", "Amanda", NA, "Kevin", "Sam", "Ryan", "Hannah", "Julia", "Sam")
+  bookmaker = as.ordered(c(
+    "Amanda",
+    "Ben",
+    "Brandon",
+    "Hannah",
+    "Healy",
+    "Julia",
+    "Kevin",
+    "Ryan",
+    "Sam"
+  )),
+  color = c(
+    "#1f78bf",
+    "#b2df8a",
+    "#cab2d6",
+    "#e31a1c",
+    "#ff6d01",
+    "#ffff99",
+    "#33a02c",
+    "#a6cee3",
+    "#6a3d9a"
+  ),
+  pair = c(
+    "Ben",
+    "Amanda",
+    NA,
+    "Kevin",
+    "Sam",
+    "Ryan",
+    "Hannah",
+    "Julia",
+    "Sam"
+  )
 )
-bookmaker_info$pair <- ordered(bookmaker_info$pair, levels = bookmaker_info$bookmaker)
+bookmaker_info$pair <- ordered(
+  bookmaker_info$pair,
+  levels = bookmaker_info$bookmaker
+)
 bookmaker_info$pair_name <- with(bookmaker_info, {
   if_else(!is.na(pair),
           paste(pmax(bookmaker, pair), "&", pmin(bookmaker, pair)),
           NA_character_)
 })
 
-rating_data <- read_csv("~/Downloads/SF Book Club Ratings - Ratings(3).csv", show_col_types = FALSE)
+rating_data <- read_csv(
+  "data/SF Book Club Ratings - Ratings.csv",
+  show_col_types = FALSE
+)
 
 ratings <- rating_data %>%
   select(-`Healy's Recap`, -Average, -SD, -Rating) %>%
@@ -59,7 +97,10 @@ ratings <- rating_data %>%
   drop_na() %>%
   mutate(rating = nchar(rating))
 
-ratings$bookmaker <- ordered(ratings$bookmaker, levels = bookmaker_info$bookmaker)
+ratings$bookmaker <- ordered(
+  ratings$bookmaker,
+  levels = bookmaker_info$bookmaker
+)
 ratings$rater <- ordered(ratings$rater, levels = bookmaker_info$bookmaker)
 
 book_to_maker <- ratings %>%
@@ -114,7 +155,10 @@ cor.mtest <- function(mat, ...) {
 }
 p.mat <- cor.mtest(ratings_mat)
 
-cors_long <- as.data.frame.table(cors, responseName = "cor", stringsAsFactors = FALSE) %>%
+cors_long <- as.data.frame.table(
+  cors,
+  responseName = "cor",
+  stringsAsFactors = FALSE) %>%
   filter(Var1 > Var2) %>%
   mutate(pair_name = paste(Var1, "&", Var2)) %>%
   select(-Var1, -Var2) %>%
@@ -141,9 +185,11 @@ results[["summary"]] <- list(
   "ratings" = nrow(ratings),
   "books" = nrow(books),
   "cycle" = max(bookmakers$book_count),
-  "days_since" = as.numeric(difftime(Sys.Date(), min(ratings$date), units = "d"))
+  "days_since" = as.numeric(
+    difftime(Sys.Date(), min(ratings$date), units = "d")
+  )
 )
-  
+
 for(i in 1:nrow(results_to_build)) {
   df_name <- results_to_build[i, "Var1"]
   value <- results_to_build[i, "Var2"]
@@ -179,7 +225,7 @@ make_bar_plot <- function(df,
         x=df[[metric]],
         color=df[[color]],
         colors = bookmaker_info$color,
-        # legendgroup="group1",  # With this, you can't filter to one legend item
+        # legendgroup="group1",  # Can't filter to one legend item
         orientation="h"
       ) %>%
       layout(
@@ -198,15 +244,12 @@ make_bar_plot <- function(df,
       if(2*show_n > nrow(df)) {
         stop("invalid show_n value")
       }
-      
       p1 <- df %>%
         slice_head(n = show_n) %>%
         make_plot(title = paste("Top", show_n))
-      
       p2 <- df %>%
         slice_tail(n = show_n) %>%
         make_plot(title = paste("Bottom", show_n))
-      
       p <- subplot(p1, p2, nrows = 2, shareX = TRUE, titleY = TRUE)
     }
     
@@ -348,7 +391,7 @@ df <- cors_long %>%
 row.names(df) <- df$Pair
 df$Pair <- NULL
 
-df %>%  
+df %>%
   kable(col.names = NULL) %>%
   kable_styling(full_width = FALSE)
 ```
