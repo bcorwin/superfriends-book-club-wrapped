@@ -1,6 +1,6 @@
 ---
 title: "Superfriends Book Club"
-subtitle: "2023 Wrapped"
+subtitle: "`r params$year` Wrapped"
 output:
   html_document:
     fig_height: 8
@@ -10,7 +10,7 @@ output:
       collapsed: false
       smooth_scroll: false
 params:
-  year: 2022
+  year: 2021
 ---
 
 ```{r setup, include=FALSE}
@@ -138,7 +138,10 @@ books <- get_ratings_summary("book") %>%
   join(book_to_maker, by = "book")
 raters <- get_ratings_summary("rater")
 raters_bookmakers <- get_ratings_summary(c("rater", "bookmaker")) %>%
-  filter(rater != "Brandon", bookmaker != "Brandon") %>%
+  filter(
+    rater != "Brandon", bookmaker != "Brandon",
+    timeframe == "all"
+  ) %>%
   select(rater, bookmaker, average) %>%
   pivot_wider(names_from = bookmaker, values_from = average) %>%
   as.data.frame()
@@ -153,7 +156,6 @@ ratings_mat <- ratings %>%
 row.names(ratings_mat) <- ratings_mat$book
 ratings_mat <- select(ratings_mat, -book)
 
-# TODO: confirm this is working correctly and make this a function
 cors <- cor(ratings_mat, use = "pairwise.complete.obs")
 cor.mtest <- function(mat, ...) {
     mat <- as.matrix(mat)
@@ -303,21 +305,33 @@ for (timeframe in c("all", "current")) {
   )
 }
 
-# TODO: Update this for year split
-results <- list()
-results[["cors"]][["pair"]][["max"]] <- cors_long[[which.max(cors_long$cor),
-                                                   "pair_name"]]
-results[["cors"]][["pair"]][["min"]] <- cors_long[[which.min(cors_long$cor),
-                                                   "pair_name"]]
+set_result_value(
+  cors_long[[which.max(cors_long$cor), "pair_name"]],
+  "all",
+  "cors",
+  "pairwise",
+  "max"
+)
+set_result_value(
+  cors_long[[which.min(cors_long$cor), "pair_name"]],
+  "all",
+  "cors",
+  "pairwise",
+  "min"
+)
 ```
 
 ```{r make-functions}
-make_bar_plot <- function(df,
-                          group,
-                          metric,
-                          color="bookmaker",
-                          show_n=NA) {
+make_bar_plot <- function(
+  df,
+  group,
+  metric,
+  color = "bookmaker",
+  show_n = NA,
+  timeframe = "current"
+) {
   df <- df %>%
+    filter(timeframe == !!timeframe) %>%
     arrange(across(metric, desc))
 
   xaxis_title <- switch(metric,
@@ -365,28 +379,77 @@ make_bar_plot <- function(df,
 ```
 
 # Summary Data
-
-- Books read: `r get_result_value("current", "summary", "books", NA)`
-- Number of ratings: `r get_result_value("current", "summary", "ratings", NA)`
-- Current cycle: `r get_result_value("current", "summary", "cycle", NA)`
-
-
+```{r pull-summary-numbers}
+summary_number <- function(metric) {
+  list(
+    current = get_result_value("current", "summary", metric, NA),
+    all = get_result_value("all", "summary", metric, NA)
+  )
+}
+df <- data.frame(
+  row.names = c(
+    "Current cycle",
+    "Books read",
+    "Number of ratings",
+    "Avg days between meetings"
+  ),
+  current = c(
+    "",
+    summary_number("books")$current,
+    summary_number("ratings")$current,
+    round(
+      as.integer(summary_number("days_since")$current) /
+        as.integer(summary_number("books")$current),
+      1
+    )
+  ),
+  all = c(
+    summary_number("cycle")$all,
+    summary_number("books")$all,
+    summary_number("ratings")$all,
+    round(
+      as.integer(summary_number("days_since")$all) /
+        as.integer(summary_number("books")$all),
+      1
+    )
+  )
+)
+df %>%
+  kable(
+    format = "html",
+    escape = FALSE,
+    booktabs = TRUE,
+    col.names = c(params$year, "To date")
+  ) %>%
+  kable_styling()
+```
+<!-- TODO: make these a template -->
 # Books
-## Best / Worst
+## Best / Worst {.tabset}
+### `r params$year`
 
-Best: `r results$books$average$best`
+Best: `r get_result_value("current", "books", "average", "best")`
 
-Worst: `r results$books$average$worst`
+Worst: `r get_result_value("current", "books", "average", "worst")`
 
-```{r books-ratings}
+```{r books-ratings-current}
 make_bar_plot(books, "book", "average")
+```
+### To date
+
+Best: `r get_result_value("all", "books", "average", "best")`
+
+Worst: `r get_result_value("all", "books", "average", "worst")`
+
+```{r books-ratings-all}
+make_bar_plot(books, "book", "average", timeframe = "all")
 ```
 
 ## Most / Least Polarizing
 
-Most: `r results$books$stdev$best`
+Most: `r get_result_value("all", "books", "stdev", "best")`
 
-Least: `r results$books$stdev$worst`
+Least: `r get_result_value("all", "books", "stdev", "worst")`
 
 ```{r books-stdev}
 make_bar_plot(books, "book", "stdev")
@@ -396,9 +459,9 @@ make_bar_plot(books, "book", "stdev")
 
 ## Best / Worst
 
-Best: `r results$bookmakers$average$best`
+Best: `r get_result_value("all", "bookmakers", "average", "best")`
 
-Worst: `r results$bookmakers$average$worst`
+Worst: `r get_result_value("all", "bookmakers", "average", "worst")`
 
 ```{r bookmakers-ratings}
 make_bar_plot(bookmakers, "bookmaker", "average")
@@ -406,9 +469,9 @@ make_bar_plot(bookmakers, "bookmaker", "average")
 
 ## Most / Least Polarizing
 
-Most: `r results$bookmakers$stdev$best`
+Most: `r get_result_value("all", "bookmakers", "stdev", "best")`
 
-Least: `r results$bookmakers$stdev$worst`
+Least: `r get_result_value("all", "bookmakers", "stdev", "worst")`
 
 ```{r bookmakers-stdev}
 make_bar_plot(bookmakers, "bookmaker", "stdev")
@@ -417,18 +480,18 @@ make_bar_plot(bookmakers, "bookmaker", "stdev")
 # Raters
 
 ## Highest / Lowest
-Highest: `r results$raters$average$best`
+Highest: `r get_result_value("all", "raters", "average", "best")`
 
-Lowest: `r results$raters$average$worst`
+Lowest: `r get_result_value("all", "raters", "average", "worst")`
 
 ```{r raters-avg}
 make_bar_plot(raters, "rater", "average", color="rater")
 ```
 
 ## Most / Least Variable
-Most: `r results$raters$stdev$best`
+Most: `r get_result_value("all", "raters", "stdev", "best")`
 
-Least: `r results$raters$stdev$worst`
+Least: `r get_result_value("all", "raters", "stdev", "worst")`
 
 ```{r raters-stdev}
 make_bar_plot(raters, "rater", "stdev", color="rater")
@@ -437,6 +500,7 @@ make_bar_plot(raters, "rater", "stdev", color="rater")
 ## Favorite / Least Favorite Bookmaker
 
 ```{r}
+# Note: all time only
 max_values <- raters_bookmakers == apply(raters_bookmakers, 1, max)
 min_values <- raters_bookmakers == apply(raters_bookmakers, 1, min)
 
@@ -452,16 +516,16 @@ df[min_values] <- cell_spec(df[min_values],
 df %>%
   kable(format = "html", escape = FALSE, booktabs=TRUE) %>%
   kable_styling() %>%
-  add_header_above(c(" "=1, "Bookmaker" = ncol(df)))
+  add_header_above(c(" " = 1, "Bookmaker" = ncol(df)))
 ```
 
 # Preference Similarity
 
 ## Most / Least Similar
 
-Most: `r results$cors$pair$max`
+Most: `r get_result_value("all", "cors", "pairwise", "max")`
 
-Least: `r results$cors$pair$min`
+Least: `r get_result_value("all", "cors", "pairwise", "min")`
 
 ```{r corr-plot}
 mat <- cors
