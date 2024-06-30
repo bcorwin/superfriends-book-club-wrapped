@@ -27,7 +27,7 @@ library(plotly)
 library(kableExtra)
 ```
 
-```{r process-data}
+```{r generate-meta-data}
 bookmaker_info <- data.frame(
   bookmaker = as.ordered(c(
     "Amanda",
@@ -72,13 +72,11 @@ bookmaker_info$pair_name <- with(bookmaker_info, {
           paste(pmax(bookmaker, pair), "&", pmin(bookmaker, pair)),
           NA_character_)
 })
-
-rating_data <- read_csv(
+```
+```{r generate-ratings}
+ratings <- read_csv(
   "data/SF Book Club Ratings - Ratings.csv",
-  show_col_types = FALSE
-)
-
-ratings <- rating_data %>%
+  show_col_types = FALSE) %>%
   select(-`Healy's Recap`, -Average, -SD, -Rating) %>%
   rename(
     date = `Book Club Date`,
@@ -95,7 +93,11 @@ ratings <- rating_data %>%
     values_to = "rating"
   ) %>%
   drop_na() %>%
-  mutate(rating = nchar(rating))
+  mutate(
+    rating = nchar(rating),
+    year = as.integer(format(date, "%Y"))
+  ) %>%
+  filter(year <= params$year)
 
 ratings$bookmaker <- ordered(
   ratings$bookmaker,
@@ -106,16 +108,29 @@ ratings$rater <- ordered(ratings$rater, levels = bookmaker_info$bookmaker)
 book_to_maker <- ratings %>%
   select(book, bookmaker) %>%
   distinct()
-
+```
+```{r make-summaries}
 get_ratings_summary <- function(group) {
-  ratings %>%
+  all_summary <- ratings %>%
     group_by_at(group) %>%
-    summarise(
+    dplyr::summarise(
       average = mean(rating),
       stdev = sd(rating),
       n = n(),
       book_count = n_distinct(book)
-    )
+    ) %>%
+    mutate(timeframe = "all")
+  current_summary <- ratings %>%
+    filter(year == params$year) %>%
+    group_by_at(group) %>%
+    dplyr::summarise(
+      average = mean(rating),
+      stdev = sd(rating),
+      n = n(),
+      book_count = n_distinct(book)
+    ) %>%
+    mutate(timeframe = "current")
+  bind_rows(all_summary, current_summary)
 }
 
 bookmakers <- get_ratings_summary("bookmaker")
@@ -138,6 +153,7 @@ ratings_mat <- ratings %>%
 row.names(ratings_mat) <- ratings_mat$book
 ratings_mat <- select(ratings_mat, -book)
 
+# TODO: confirm this is working correctly and make this a function
 cors <- cor(ratings_mat, use = "pairwise.complete.obs")
 cor.mtest <- function(mat, ...) {
     mat <- as.matrix(mat)
@@ -156,48 +172,116 @@ cor.mtest <- function(mat, ...) {
 p.mat <- cor.mtest(ratings_mat)
 
 cors_long <- as.data.frame.table(
-  cors,
-  responseName = "cor",
-  stringsAsFactors = FALSE) %>%
+    cors,
+    responseName = "cor",
+    stringsAsFactors = FALSE
+  ) %>%
   filter(Var1 > Var2) %>%
   mutate(pair_name = paste(Var1, "&", Var2)) %>%
   select(-Var1, -Var2) %>%
   arrange(-cor)
-
-get_best_worst <- function(df_name, value, type) {
-  df <- get(df_name)
-  target_value <- ifelse(type == "best", max(df[value]), min(df[value]))
-  result <- df[df[value] == target_value, ] %>%
+```
+```{r generate-results-data}
+get_best_worst <- function(timeframe, dataset, metric, type) {
+  df <- get(dataset) %>%
+    filter(timeframe == !!timeframe)
+  target_value <- ifelse(
+    type == "best",
+    max(df[metric], na.rm = TRUE),
+    min(df[metric], na.rm = TRUE)
+  )
+  result <- df[df[metric] == target_value, ] %>%
+    drop_na(all_of(metric)) %>%
     pull(1)
-  return(result)
+
+  paste(result, collapse = " / ")
 }
 
-results_to_build <- expand.grid(
-  c("books", "raters", "bookmakers"),
-  c("average", "stdev"),
-  c("best", "worst"),
+set_result_value <- function(
+    value,
+    timeframe,
+    dataset,
+    metric,
+    type = NA_character_) {
+
+  new_value <- data.frame(
+    timeframe = timeframe,
+    dataset = dataset,
+    metric = metric,
+    type = type,
+    value = as.character(value)
+  )
+  results_df <<- results_df %>%
+    rows_upsert(new_value, by = c("timeframe", "dataset", "metric", "type"))
+}
+
+results_df <- expand.grid(
+  timeframe = c("current", "all"),
+  dataset = c("books", "raters", "bookmakers"),
+  metric = c("average", "stdev"),
+  type = c("best", "worst"),
+  value = NA_character_,
   stringsAsFactors = FALSE
 )
 
-results <- list()
+for (i in seq_len(nrow(results_df))) {
+  timeframe <- results_df[i, "timeframe"]
+  dataset <- results_df[i, "dataset"]
+  metric <- results_df[i, "metric"]
+  type <- results_df[i, "type"]
 
-results[["summary"]] <- list(
-  "ratings" = nrow(ratings),
-  "books" = nrow(books),
-  "cycle" = max(bookmakers$book_count),
-  "days_since" = as.numeric(
-    difftime(Sys.Date(), min(ratings$date), units = "d")
-  )
-)
-
-for(i in 1:nrow(results_to_build)) {
-  df_name <- results_to_build[i, "Var1"]
-  value <- results_to_build[i, "Var2"]
-  type <- results_to_build[i, "Var3"]
-  result <- get_best_worst(df = df_name, value = value, type = type)
-  results[[df_name]][[value]][[type]] <- result
+  result <- get_best_worst(timeframe, dataset, metric, type)
+  set_result_value(result, timeframe, dataset, metric, type)
 }
 
+for (timeframe in c("all", "current")) {
+  num_ratings <- ifelse(
+    timeframe == "all",
+    nrow(ratings),
+    filter(ratings, year == params$year) %>% nrow()
+  )
+  set_result_value(num_ratings, timeframe, "summary", "ratings")
+
+  set_result_value(
+    nrow(filter(books, timeframe == !!timeframe)),
+    timeframe,
+    "summary",
+    "books"
+  )
+
+  if (timeframe == "all") {
+    set_result_value(
+      filter(bookmakers, timeframe == "all") %>%
+        pull(book_count) %>%
+        max(),
+      timeframe,
+      "summary",
+      "cycle"
+    )
+  }
+
+  if(timeframe == "all") {
+    start_date <- min(ratings$date)
+  } else {
+    start_date <- ratings %>%
+      filter(year == params$year) %>%
+      pull(date) %>%
+      min()
+  }
+  if(format(Sys.Date(), "%Y") == params$year) {
+    end_date <- Sys.Date()
+  } else {
+    end_date <- as.Date(paste(params$year, "12", "31", sep = "-"))
+  }
+  set_result_value(
+    difftime(end_date, start_date, units = "d"),
+    timeframe,
+    "summary",
+    "days_since"
+  )
+}
+
+# TODO: Update this for year split
 results[["cors"]][["pair"]][["max"]] <- cors_long[[which.max(cors_long$cor),
                                                    "pair_name"]]
 results[["cors"]][["pair"]][["min"]] <- cors_long[[which.min(cors_long$cor),
