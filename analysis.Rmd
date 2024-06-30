@@ -215,6 +215,28 @@ set_result_value <- function(
     rows_upsert(new_value, by = c("timeframe", "dataset", "metric", "type"))
 }
 
+get_result_value <- function(
+    timeframe,
+    dataset,
+    metric,
+    type) {
+  df <- results_df %>%
+    filter(
+      timeframe == !!timeframe,
+      dataset == !!dataset,
+      metric == !!metric
+    )
+
+  if (is.na(type)) {
+    df <- df %>%
+      filter(is.na(type))
+  } else {
+    df <- df %>%
+      filter(type == !!type)
+  }
+  df %>% pull(value)
+}
+
 results_df <- expand.grid(
   timeframe = c("current", "all"),
   dataset = c("books", "raters", "bookmakers"),
@@ -282,6 +304,7 @@ for (timeframe in c("all", "current")) {
 }
 
 # TODO: Update this for year split
+results <- list()
 results[["cors"]][["pair"]][["max"]] <- cors_long[[which.max(cors_long$cor),
                                                    "pair_name"]]
 results[["cors"]][["pair"]][["min"]] <- cors_long[[which.min(cors_long$cor),
@@ -343,10 +366,10 @@ make_bar_plot <- function(df,
 
 # Summary Data
 
-- Books read: `r results$summary$books`
-- Number of ratings: `r results$summary$ratings`
-- Current cycle: `r results$summary$cycle`
-- Avg days between meetings: `r round(results$summary$days_since / results$summary$books, 0)`
+- Books read: `r get_result_value("current", "summary", "books", NA)`
+- Number of ratings: `r get_result_value("current", "summary", "ratings", NA)`
+- Current cycle: `r get_result_value("current", "summary", "cycle", NA)`
+
 
 # Books
 ## Best / Worst
