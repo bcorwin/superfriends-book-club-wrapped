@@ -10,7 +10,7 @@ output:
       collapsed: false
       smooth_scroll: false
 params:
-  year: 2021
+  year: 2024
 ---
 
 ```{r setup, include=FALSE}
@@ -76,16 +76,23 @@ bookmaker_info$pair_name <- with(bookmaker_info, {
 ```
 ```{r generate-ratings}
 ratings <- read_csv(
-  "data/SF Book Club Ratings - Ratings.csv",
-  show_col_types = FALSE) %>%
-  select(-`Healy's Recap`, -Average, -SD, -Rating) %>%
+    "data/SF Book Club Ratings - Ratings.csv",
+    show_col_types = FALSE
+  ) %>%
+  select(all_of(c(
+    "Book Club Date",
+    "Bookmaker",
+    "Book",
+    levels(bookmaker_info$bookmaker),
+    "Guest"
+  ))) %>%
   rename(
     date = `Book Club Date`,
     bookmaker = Bookmaker,
     book = Book
   ) %>%
   mutate(
-    date = as.Date(date, format="%m/%d/%Y"),
+    date = as.Date(date, format = "%m/%d/%Y"),
     book = gsub(":.*", "", book)  # Remove subtitles
   ) %>%
   pivot_longer(
@@ -137,10 +144,12 @@ get_ratings_summary <- function(group) {
 bookmakers <- get_ratings_summary("bookmaker")
 books <- get_ratings_summary("book") %>%
   join(book_to_maker, by = "book")
-raters <- get_ratings_summary("rater")
+raters <- get_ratings_summary("rater") %>%
+  filter(rater != "Guest")
 raters_bookmakers <- get_ratings_summary(c("rater", "bookmaker")) %>%
   filter(
     rater != "Brandon", bookmaker != "Brandon",
+    !is.na(rater),
     timeframe == "all"
   ) %>%
   select(rater, bookmaker, average) %>%
@@ -150,7 +159,10 @@ row.names(raters_bookmakers) <- raters_bookmakers$rater
 raters_bookmakers$rater <- NULL
 
 ratings_mat <- ratings %>%
-  filter(rater %in% raters$rater[raters$n > 5]) %>%
+  filter(
+    !is.na(rater),
+    rater %in% raters$rater[raters$n > 5]
+  ) %>%
   select(book, rater, rating) %>%
   pivot_wider(names_from = rater, values_from = rating) %>%
   as.data.frame()
@@ -469,6 +481,7 @@ Most: `r get_result_value("all", "cors", "pairwise", "max")`
 Least: `r get_result_value("all", "cors", "pairwise", "min")`
 
 ```{r corr-plot}
+# TODO: compare this to last year (do the same for all the ones that are "all" only)
 mat <- cors
 diag(mat) <- NA
 max_cors <- apply(mat, 1, max, na.rm = TRUE)
@@ -478,7 +491,7 @@ p <- corrplot::corrplot(
   cors,
   method = 'ellipse',
   order = 'hclust',
-  addrect = 2,
+  addrect = 3,  # TODO: Determine this programatically
   type='full',
   diag=FALSE,
   addCoef.col = "black",
