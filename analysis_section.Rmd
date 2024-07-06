@@ -7,6 +7,21 @@ if (!exists("color_by")) color_by <- "bookmaker"
 
 # `r title`
 ## `r section1_title` {.tabset}
+### Pre-`r params$year`
+
+`r section1_metrics[1]`: `r get_result_value("previous", dataset, "average", "best")`
+
+`r section1_metrics[2]`: `r get_result_value("previous", dataset, "average", "worst")`
+
+```{r}
+make_bar_plot(
+  get(dataset),
+  group,
+  "average",
+  color = color_by,
+  timeframe = "previous"
+)
+```
 ### `r params$year`
 
 `r section1_metrics[1]`: `r get_result_value("current", dataset, "average", "best")`
@@ -39,6 +54,20 @@ make_bar_plot(
 ```
 
 ## `r section2_title` {.tabset}
+### Pre-`r params$year`
+Most: `r get_result_value("previous", dataset, "stdev", "best")`
+
+Least: `r get_result_value("previous", dataset, "stdev", "worst")`
+
+```{r}
+make_bar_plot(
+  get(dataset),
+  group,
+  "stdev",
+  color = color_by,
+  timeframe = "previous"
+)
+```
 ### `r params$year`
 Most: `r get_result_value("current", dataset, "stdev", "best")`
 

@@ -138,7 +138,17 @@ get_ratings_summary <- function(group) {
       book_count = n_distinct(book)
     ) %>%
     mutate(timeframe = "current")
-  bind_rows(all_summary, current_summary)
+  previous_summary <- ratings %>%
+    filter(year < params$year) %>%
+    group_by_at(group) %>%
+    dplyr::summarise(
+      average = mean(rating),
+      stdev = sd(rating),
+      n = n(),
+      book_count = n_distinct(book)
+    ) %>%
+    mutate(timeframe = "previous")
+  bind_rows(all_summary, current_summary, previous_summary)
 }
 
 bookmakers <- get_ratings_summary("bookmaker")
@@ -257,7 +267,7 @@ get_result_value <- function(
 }
 
 results_df <- expand.grid(
-  timeframe = c("current", "all"),
+  timeframe = c("current", "all", "previous"),
   dataset = c("books", "raters", "bookmakers"),
   metric = c("average", "stdev"),
   type = c("best", "worst"),
@@ -434,7 +444,6 @@ df %>%
   ) %>%
   kable_styling()
 ```
-<!-- TODO: make these a template -->
 
 ```{r analysis-sections, results="asis"}
 analysis_sections <- list(
