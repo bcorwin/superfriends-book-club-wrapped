@@ -10,10 +10,8 @@ if (length(args) == 0) {
 
 options(knitr.duplicate.label = "allow")
 for (year in years) {
-  output_file <- file.path(
-    "output",
-    paste0("wrapped_", year, ".html")
-  )
+  output_file <- paste0("wrapped_", year, ".html")
+
   rmarkdown::render(
     "analysis.Rmd",
     output_file = output_file,
