@@ -28,4 +28,6 @@ RUN apt-get update \
 
 RUN python3 -m pip install setuptools
 RUN python3 -m pip install radian
-RUN R -e "renv::restore()"
+
+# Install Renv and restore packages
+RUN R -e "install.packages('renv', repos='http://cran.rstudio.com/')"
