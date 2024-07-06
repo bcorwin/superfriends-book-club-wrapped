@@ -75,11 +75,12 @@ bookmaker_info$pair_name <- with(bookmaker_info, {
 })
 ```
 ```{r generate-ratings}
-ratings <- read_csv(
+raw_ratings <- read_csv(
     "data/SF Book Club Ratings - Ratings.csv",
     show_col_types = FALSE
   ) %>%
   select(all_of(c(
+    "Healy's Recap",
     "Book Club Date",
     "Bookmaker",
     "Book",
@@ -87,24 +88,26 @@ ratings <- read_csv(
     "Guest"
   ))) %>%
   rename(
+    recap = `Healy's Recap`,
     date = `Book Club Date`,
     bookmaker = Bookmaker,
     book = Book
   ) %>%
   mutate(
     date = as.Date(date, format = "%m/%d/%Y"),
+    year = as.integer(format(date, "%Y")),
     book = gsub(":.*", "", book)  # Remove subtitles
-  ) %>%
+  )
+
+ratings <- raw_ratings %>%
+  select(-recap) %>%
   pivot_longer(
-    -c(date, bookmaker, book),
+    -c(year, date, bookmaker, book),
     names_to = "rater",
     values_to = "rating"
   ) %>%
   drop_na() %>%
-  mutate(
-    rating = nchar(rating),
-    year = as.integer(format(date, "%Y"))
-  ) %>%
+  mutate(rating = nchar(rating)) %>%
   filter(year <= params$year)
 
 ratings$bookmaker <- ordered(
@@ -155,7 +158,7 @@ bookmakers <- get_ratings_summary("bookmaker")
 books <- get_ratings_summary("book") %>%
   join(book_to_maker, by = "book") %>%
   join(
-    ratings %>% select(book, year) %>% distinct(),
+     select(raw_ratings, book, year, recap),
     by = "book"
   )
 raters <- get_ratings_summary("rater") %>%
@@ -354,13 +357,20 @@ make_bar_plot <- function(
   group,
   metric,
   color = "bookmaker",
-  timeframe = "current"
+  timeframe = "current",
+  meta = NA
 ) {
   highlight_current <- (group == "book") & (timeframe == "all")
+  hovertemplate <- "%{x:.2f}"
 
   df <- df %>%
     filter(timeframe == !!timeframe) %>%
     arrange(across(all_of(metric), desc))
+
+  if(!is.na(meta)) {
+    meta <- df[[meta]]
+    hovertemplate <- paste0(hovertemplate, "<br>%{meta}")
+  }
 
   if(highlight_current) {
     df <- df %>%
@@ -385,7 +395,9 @@ make_bar_plot <- function(
       color=df[[color]],
       colors = bookmaker_info$color,
       # legendgroup="group1",  # Can't filter to one legend item
-      orientation="h"
+      orientation="h",
+      meta = meta,
+      hovertemplate = hovertemplate
     ) %>%
     layout(
       yaxis = list(
@@ -450,7 +462,8 @@ analysis_sections <- list(
   books = list(
     title = "Books",
     dataset = "books",
-    group = "book"
+    group = "book",
+    meta = "recap"
   ),
   bookmakers = list(
     title = "Bookmakers",

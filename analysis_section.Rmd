@@ -3,6 +3,7 @@ if (!exists("section1_title")) section1_title <- "Best / Worst"
 if (!exists("section1_metrics")) section1_metrics <- c("Best", "Worst")
 if (!exists("section2_title")) section2_title <- "Most / Least Polarizing"
 if (!exists("color_by")) color_by <- "bookmaker"
+if (!exists("meta")) meta <- NA
 ```
 
 # `r title`
@@ -19,7 +20,8 @@ make_bar_plot(
   group,
   "average",
   color = color_by,
-  timeframe = "previous"
+  timeframe = "previous",
+  meta = meta
 )
 ```
 ### `r params$year`
@@ -34,7 +36,8 @@ make_bar_plot(
   group,
   "average",
   color = color_by,
-  timeframe = "current"
+  timeframe = "current",
+  meta = meta
 )
 ```
 ### To date
@@ -49,7 +52,8 @@ make_bar_plot(
   group,
   "average",
   color = color_by,
-  timeframe = "all"
+  timeframe = "all",
+  meta = meta
 )
 ```
 
@@ -65,7 +69,8 @@ make_bar_plot(
   group,
   "stdev",
   color = color_by,
-  timeframe = "previous"
+  timeframe = "previous",
+  meta = meta
 )
 ```
 ### `r params$year`
@@ -79,7 +84,8 @@ make_bar_plot(
   group,
   "stdev",
   color = color_by,
-  timeframe = "current"
+  timeframe = "current",
+  meta = meta
 )
 ```
 ### To date
@@ -93,7 +99,8 @@ make_bar_plot(
   group,
   "stdev",
   color = color_by,
-  timeframe = "all"
+  timeframe = "all",
+  meta = meta
 )
 ```
 
