@@ -1,4 +1,4 @@
-FROM rocker/r-ver:4.1.2
+FROM rocker/r-ver:4.2.2
 
 # [Option] Install zsh
 ARG INSTALL_ZSH="true"
@@ -23,7 +23,9 @@ RUN apt-get update \
     libssl-dev \
     libxml2-dev \
     python3-pip \
-    libxt6
+    libxt6 \
+    pandoc
 
 RUN python3 -m pip install setuptools
 RUN python3 -m pip install radian
+RUN R -e "renv::restore()"
