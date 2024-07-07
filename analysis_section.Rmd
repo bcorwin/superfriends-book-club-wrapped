@@ -127,6 +127,9 @@ df %>%
   add_header_above(c(" " = 1, "Bookmaker" = ncol(df)))
 ```
 
+```{r, eval = (dataset == "raters"), results = "asis"}
+cat("## Rating groups", sep = "\n")
+```
 ```{r, eval = (dataset == "books")}
 df <- get(dataset) %>%
   filter(timeframe == "all") %>%
@@ -169,7 +172,7 @@ plot_ly(
     data = df_current,
     ay=~ay,
     ax=~ax,
-    text=~annotation,
+    text=~book,
     arrowhead=0
   ) %>%
   add_segments(
