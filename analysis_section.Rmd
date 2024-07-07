@@ -1,0 +1,221 @@
+```{r}
+if (!exists("section1_title")) section1_title <- "Best / Worst"
+if (!exists("section1_metrics")) section1_metrics <- c("Best", "Worst")
+if (!exists("section2_title")) section2_title <- "Most / Least Polarizing"
+if (!exists("color_by")) color_by <- "bookmaker"
+if (!exists("meta")) meta <- NA
+```
+
+# `r title`
+## `r section1_title` {.tabset}
+### Pre-`r params$year`
+
+`r section1_metrics[1]`: `r get_result_value("previous", dataset, "average", "best")`
+
+`r section1_metrics[2]`: `r get_result_value("previous", dataset, "average", "worst")`
+
+```{r}
+make_bar_plot(
+  get(dataset),
+  group,
+  "average",
+  color = color_by,
+  timeframe = "previous",
+  meta = meta
+)
+```
+### `r params$year`
+
+`r section1_metrics[1]`: `r get_result_value("current", dataset, "average", "best")`
+
+`r section1_metrics[2]`: `r get_result_value("current", dataset, "average", "worst")`
+
+```{r}
+make_bar_plot(
+  get(dataset),
+  group,
+  "average",
+  color = color_by,
+  timeframe = "current",
+  meta = meta
+)
+```
+### To date
+
+`r section1_metrics[1]`: `r get_result_value("all", dataset, "average", "best")`
+
+`r section1_metrics[2]`: `r get_result_value("all", dataset, "average", "worst")`
+
+```{r}
+make_bar_plot(
+  get(dataset),
+  group,
+  "average",
+  color = color_by,
+  timeframe = "all",
+  meta = meta
+)
+```
+
+## `r section2_title` {.tabset}
+### Pre-`r params$year`
+Most: `r get_result_value("previous", dataset, "stdev", "best")`
+
+Least: `r get_result_value("previous", dataset, "stdev", "worst")`
+
+```{r}
+make_bar_plot(
+  get(dataset),
+  group,
+  "stdev",
+  color = color_by,
+  timeframe = "previous",
+  meta = meta
+)
+```
+### `r params$year`
+Most: `r get_result_value("current", dataset, "stdev", "best")`
+
+Least: `r get_result_value("current", dataset, "stdev", "worst")`
+
+```{r}
+make_bar_plot(
+  get(dataset),
+  group,
+  "stdev",
+  color = color_by,
+  timeframe = "current",
+  meta = meta
+)
+```
+### To date
+Most: `r get_result_value("all", dataset, "stdev", "best")`
+
+Least: `r get_result_value("all", dataset, "stdev", "worst")`
+
+```{r}
+make_bar_plot(
+  get(dataset),
+  group,
+  "stdev",
+  color = color_by,
+  timeframe = "all",
+  meta = meta
+)
+```
+<!-- TODO: Move additional chunks to their own files and add them as a paramter in the analysis list -->
+```{r, eval = (dataset == "raters") & (params$year > 2020), results = "asis"}
+cat("## Favorite / Least Favorite Bookmaker", sep = "\n")
+```
+```{r, eval = (dataset == "raters") & (params$year > 2020)}
+# Note: all time only
+max_values <- raters_bookmakers == apply(raters_bookmakers, 1, max)
+min_values <- raters_bookmakers == apply(raters_bookmakers, 1, min)
+
+df <- raters_bookmakers %>%
+  mutate(across(where(is.numeric), sprintf, fmt = '%.2f'))
+
+df[max_values] <- cell_spec(df[max_values],
+                            format =  "html",
+                            background = "#ef8a62")
+df[min_values] <- cell_spec(df[min_values],
+                            format =  "html",
+                            background = "#67a9cf")
+df %>%
+  kable(format = "html", escape = FALSE, booktabs = TRUE) %>%
+  kable_styling() %>%
+  add_header_above(c(" " = 1, "Bookmaker" = ncol(df)))
+```
+
+```{r, eval = (dataset == "books"), results = "asis"}
+cat("## Rating groups", sep = "\n")
+```
+```{r, eval = (dataset == "books")}
+df <- get(dataset) %>%
+  filter(timeframe == "all") %>%
+  mutate(
+    group = paste(grp_cons, grp_like)
+  )
+df_current <- df %>%
+  filter(year == params$year) %>%
+  mutate(
+    ax = sample(c(-30:-15, 15:30), n()),
+    ay = sample(c(-30:-15, 15:30), n())
+  )
+
+get_mid_points <- function(values) {
+  five_num <- summary(values)
+  list(
+    min = five_num[[1]],
+    lower = mean(five_num[c(1, 3)]),
+    upper = mean(five_num[c(3, 6)]),
+    max = five_num[[6]]
+  )
+}
+avg_pos <- get_mid_points(df$average)
+std_pos <- get_mid_points(df$stdev)
+annotations <- as.data.frame(
+  matrix(c(
+    c(avg_pos$lower, 0.95 * std_pos$min, "Disliked"),
+    c(avg_pos$upper, 0.95 * std_pos$min, "Liked"),
+    c(0.95 * avg_pos$min, std_pos$lower, "Universally"),
+    c(0.95 * avg_pos$min, std_pos$upper, "Partially")
+  ), ncol = 3, byrow = TRUE)
+)
+
+default_hovertemplate <- paste0(
+  "%{hovertext}<br>",
+  "Rating: %{x:.2f}<br>",
+  "Std dev: %{y:.2f}"
+)
+plot_ly(
+  df,
+  y = ~stdev,
+  x = ~average,
+  hovertext = ~book,
+  hovertemplate = default_hovertemplate,
+  name = "",
+  type = "scatter",
+  mode = "markers"
+) %>%
+  layout(
+    xaxis = list(
+      title=list(text="Average rating")
+    ),
+    yaxis = list(
+      title=list(text="Standard deviation")
+    )
+  ) %>%
+  add_annotations(
+    data = df_current,
+    ay=~ay,
+    ax=~ax,
+    text=~book,
+    arrowhead=0
+  ) %>%
+  add_segments(
+    x = median(df$average),
+    xend = median(df$average),
+    y = 0.95*min(df$stdev),
+    yend = 1.05*max(df$stdev),
+    line = list(color = "grey", dash = "dash", width = 0.5),
+    showlegend=FALSE
+  ) %>%
+  add_segments(
+    y = median(df$stdev),
+    yend = median(df$stdev),
+    x = 0.95*min(df$average),
+    xend = 1.05*max(df$average),
+    line = list(color = "grey", dash = "dash", width = 0.5),
+    showlegend=FALSE
+  ) %>%
+  add_annotations(
+    data = annotations,
+    y=~V2,
+    x=~V1,
+    text=~V3,
+    textangle = ~if_else(V3 %in% c("Liked", "Disliked"), 0, -90),
+    font=list(size=18, style="italic", weight="bold"),
+    showarrow=FALSE
+  )
+```
