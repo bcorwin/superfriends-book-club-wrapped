@@ -160,7 +160,15 @@ books <- get_ratings_summary("book") %>%
   join(
      select(raw_ratings, book, year, recap),
     by = "book"
-  )
+  ) %>%
+  group_by(timeframe) %>%
+  mutate(
+    grp_like = cut(average, 2, c("disliked", "liked")),
+    grp_cons = cut(stdev, 2, c("Universally", "Tenatatively"))
+  ) %>%
+  ungroup()
+
+
 raters <- get_ratings_summary("rater") %>%
   filter(rater != "Guest")
 raters_bookmakers <- get_ratings_summary(c("rater", "bookmaker")) %>%

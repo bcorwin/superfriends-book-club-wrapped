@@ -103,7 +103,7 @@ make_bar_plot(
   meta = meta
 )
 ```
-
+<!-- TODO: Move additional chunks to their own files and add them as a paramter in the analysis list -->
 ```{r, eval = (dataset == "raters") & (params$year > 2020), results = "asis"}
 cat("## Favorite / Least Favorite Bookmaker", sep = "\n")
 ```
@@ -125,4 +125,75 @@ df %>%
   kable(format = "html", escape = FALSE, booktabs = TRUE) %>%
   kable_styling() %>%
   add_header_above(c(" " = 1, "Bookmaker" = ncol(df)))
+```
+
+```{r, eval = (dataset == "books")}
+df <- get(dataset) %>%
+  filter(timeframe == "all") %>%
+  mutate(
+    group = paste(grp_cons, grp_like)
+  )
+df_current <- df %>%
+  filter(year == params$year) %>%
+  mutate(
+    ax = sample(c(-30:-15, 15:30), n()),
+    ay = sample(c(-30:-15, 15:30), n())
+  )
+annotations <- as.data.frame(
+  matrix(c(
+    c(1.05*median(df$average), 0.95*min(df$stdev), "Liked"),
+    c(0.95*median(df$average), 0.95*min(df$stdev), "Diliked"),
+    c(1.05*min(df$average), 1.05*median(df$stdev), "Universally"),
+    c(1.05*min(df$average), 0.95*median(df$stdev), "Partially")
+    ), ncol = 3, byrow = TRUE
+  )
+)
+
+plot_ly(
+  df,
+  y=~stdev,
+  x=~average,
+  hovertext=~book,
+  hovertemplate="%{hovertext}<br>Rating: %{x:.2f}<br>Std dev: %{y:.2f}",
+  type="scatter",
+  mode="markers") %>%
+  layout(
+    xaxis = list(
+      title=list(text="Average rating")
+    ),
+    yaxis = list(
+      title=list(text="Standard deviation")
+    )
+  ) %>%
+  add_annotations(
+    data = df_current,
+    ay=~ay,
+    ax=~ax,
+    text=~annotation,
+    arrowhead=0
+  ) %>%
+  add_segments(
+    x = median(df$average),
+    xend = median(df$average),
+    y = 0.95*min(df$stdev),
+    yend = 1.05*max(df$stdev),
+    line = list(color = "grey", dash = "dash", width = 0.5),
+    showlegend=FALSE
+  ) %>%
+  add_segments(
+    y = median(df$stdev),
+    yend = median(df$stdev),
+    x = 0.95*min(df$average),
+    xend = 1.05*max(df$average),
+    line = list(color = "grey", dash = "dash", width = 0.5),
+    showlegend=FALSE
+  ) %>%
+  add_annotations(
+    data = annotations,
+    y=~V2,
+    x=~V1,
+    text=~V3,
+    font=list(size=18, style="italic", weight="bold"),
+    showarrow=FALSE
+  )
 ```
