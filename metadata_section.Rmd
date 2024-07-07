@@ -9,7 +9,7 @@ if (!exists("distribution_caption")) distribution_caption <- ""
 pref_labels <- paste("Prefers", pref_labels)
 ```
 
-## `r title`
+## `r title` {.tabset}
 
 ### Distribution
 ```{r, fig.height=6, fig.cap = distribution_caption}
