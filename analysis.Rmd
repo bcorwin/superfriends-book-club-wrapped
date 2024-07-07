@@ -11,6 +11,7 @@ output:
       smooth_scroll: false
 params:
   year: 2024
+  include_brandon: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -65,6 +66,11 @@ bookmaker_info <- data.frame(
     "Sam"
   )
 )
+if (!params$include_brandon) {
+  bookmaker_info <- bookmaker_info %>%
+    filter(bookmaker != "Brandon")
+  bookmaker_info$bookmaker <- droplevels(bookmaker_info$bookmaker)
+}
 bookmaker_info$pair <- ordered(
   bookmaker_info$pair,
   levels = bookmaker_info$bookmaker
