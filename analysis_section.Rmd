@@ -127,7 +127,7 @@ df %>%
   add_header_above(c(" " = 1, "Bookmaker" = ncol(df)))
 ```
 
-```{r, eval = (dataset == "raters"), results = "asis"}
+```{r, eval = (dataset == "books"), results = "asis"}
 cat("## Rating groups", sep = "\n")
 ```
 ```{r, eval = (dataset == "books")}
@@ -142,24 +142,42 @@ df_current <- df %>%
     ax = sample(c(-30:-15, 15:30), n()),
     ay = sample(c(-30:-15, 15:30), n())
   )
+
+get_mid_points <- function(values) {
+  five_num <- summary(values)
+  list(
+    min = five_num[[1]],
+    lower = mean(five_num[c(1, 3)]),
+    upper = mean(five_num[c(3, 6)]),
+    max = five_num[[6]]
+  )
+}
+avg_pos <- get_mid_points(df$average)
+std_pos <- get_mid_points(df$stdev)
 annotations <- as.data.frame(
   matrix(c(
-    c(1.05*median(df$average), 0.95*min(df$stdev), "Liked"),
-    c(0.95*median(df$average), 0.95*min(df$stdev), "Diliked"),
-    c(1.05*min(df$average), 1.05*median(df$stdev), "Universally"),
-    c(1.05*min(df$average), 0.95*median(df$stdev), "Partially")
-    ), ncol = 3, byrow = TRUE
-  )
+    c(avg_pos$lower, 0.95 * std_pos$min, "Disliked"),
+    c(avg_pos$upper, 0.95 * std_pos$min, "Liked"),
+    c(0.95 * avg_pos$min, std_pos$lower, "Universally"),
+    c(0.95 * avg_pos$min, std_pos$upper, "Partially")
+  ), ncol = 3, byrow = TRUE)
 )
 
+default_hovertemplate <- paste0(
+  "%{hovertext}<br>",
+  "Rating: %{x:.2f}<br>",
+  "Std dev: %{y:.2f}"
+)
 plot_ly(
   df,
-  y=~stdev,
-  x=~average,
-  hovertext=~book,
-  hovertemplate="%{hovertext}<br>Rating: %{x:.2f}<br>Std dev: %{y:.2f}",
-  type="scatter",
-  mode="markers") %>%
+  y = ~stdev,
+  x = ~average,
+  hovertext = ~book,
+  hovertemplate = default_hovertemplate,
+  name = "",
+  type = "scatter",
+  mode = "markers"
+) %>%
   layout(
     xaxis = list(
       title=list(text="Average rating")
@@ -196,6 +214,7 @@ plot_ly(
     y=~V2,
     x=~V1,
     text=~V3,
+    textangle = ~if_else(V3 %in% c("Liked", "Disliked"), 0, -90),
     font=list(size=18, style="italic", weight="bold"),
     showarrow=FALSE
   )
