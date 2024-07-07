@@ -1,0 +1,54 @@
+
+```{r}
+if (is_categorical) {
+  cors_df <- meta_ratings_diffs
+} else {
+  cors_df <- meta_cors
+}
+if (!exists("distribution_caption")) distribution_caption <- ""
+pref_labels <- paste("Prefers", pref_labels)
+```
+
+## `r title`
+
+### Distribution
+```{r, fig.height=6, fig.cap = distribution_caption}
+plot_ly(alpha = 0.6) %>%
+  add_histogram(
+    data = filter(meta_data, year == params$year),
+    name = params$year,
+    # hovertext = ~book,
+    x = ~.data[[meta_var]]
+  ) %>%
+  add_histogram(
+    data = filter(meta_data, year != params$year),
+    name = paste0("Pre-", params$year),
+    # hovertext = ~book,
+    x = ~.data[[meta_var]]
+  ) %>%
+  layout(
+    barmode = "stack",
+    xaxis = list(title = list(text = ""))
+  )
+```
+
+### Preferences
+```{r, fig.height=6}
+make_bar_plot(cors_df, "rater", meta_var, color = "rater") %>%
+  add_annotations(
+    text = pref_labels[1],
+    xref = "paper",
+    yref = "paper",
+    x = 0,
+    y = -0.06,
+    showarrow = FALSE
+  ) %>%
+  add_annotations(
+    text = pref_labels[2],
+    xref = "paper",
+    yref = "paper",
+    x = 1,
+    y = -0.06,
+    showarrow = FALSE
+  )
+```
