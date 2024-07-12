@@ -83,7 +83,7 @@ bookmaker_info$pair_name <- with(bookmaker_info, {
 ```
 ```{r generate-ratings}
 meta_data <- read_csv(
-  "Data/SF Book Club Ratings - Meta.csv",
+  "data/SF Book Club Ratings - Meta.csv",
   show_col_types = FALSE
 ) %>%
   select(-Link) %>%

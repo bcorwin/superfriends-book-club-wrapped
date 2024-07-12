@@ -47,6 +47,7 @@ meta_data %>%
   add_bars(
     hovertext = ~books,
     color = ~timeframe,
+    colors = c("#7570b3", "#d95f02"),
     x = ~bin,
     y = ~count,
     hovertemplate = paste(
