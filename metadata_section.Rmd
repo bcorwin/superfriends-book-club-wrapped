@@ -13,20 +13,11 @@ pref_labels <- paste("Prefers", pref_labels)
 
 ### Distribution
 ```{r, fig.height=6, fig.cap = distribution_caption}
-# TODO: do this programatically (use plotly?)
-bin_width <- 100
-bin_boundary <- 0
-
-bin_width <- 19
-bin_boundary <- 1880
-
-meta_data %>%
+plot_df <- meta_data %>%
   mutate(
-    # TODO: Grab just the max number for display (and format if needed)
-    bin = cut_width(
+    bin = cut_interval(
       !!as.name(meta_var),
-      width = bin_width,
-      boundary = bin_boundary
+      n = 15
     ),
     timeframe = ifelse(
       year == params$year,
@@ -42,7 +33,15 @@ meta_data %>%
       paste0(book, " (", !!as.name(meta_var), ")"),
       collapse = "<br>"
     )
-  ) %>%
+  )
+
+levels(plot_df$bin) <- stringr::str_replace(
+  levels(plot_df$bin),
+  "[\\(\\[](.*),(.*)\\]",
+  "\\2"
+)
+
+plot_df %>%
   plot_ly(alpha = 0.6) %>%
   add_bars(
     hovertext = ~books,
@@ -59,8 +58,13 @@ meta_data %>%
   layout(
     barmode = "stack",
     bargap = 0,
-    xaxis = list(title = list(text = "")),
-    yaxis = list(title = list(text = ""))
+    xaxis = list(
+      title = list(text = "")
+    ),
+    yaxis = list(
+      title = list(text = ""),
+      showticklabels = FALSE
+    )
   )
 
 plot_ly(alpha = 0.6) %>%
