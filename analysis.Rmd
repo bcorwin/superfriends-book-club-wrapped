@@ -452,7 +452,8 @@ make_bar_plot <- function(
       ),
       xaxis = list(title = xaxis_title),
       showlegend = color != group
-    )
+    ) %>%
+    config(displayModeBar = FALSE)
     p
 }
 ```

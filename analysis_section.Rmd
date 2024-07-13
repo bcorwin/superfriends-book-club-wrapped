@@ -217,5 +217,6 @@ plot_ly(
     textangle = ~if_else(V3 %in% c("Liked", "Disliked"), 0, -90),
     font=list(size=18, style="italic", weight="bold"),
     showarrow=FALSE
-  )
+  ) %>%
+  config(displayModeBar = FALSE)
 ```
