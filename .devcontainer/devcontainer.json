@@ -17,12 +17,11 @@
 	"extensions": [
 		// R extensions
 		"ikuyadeu.r",
-		"REditorSupport.r-lsp",
+		"REditorSupport.r"
 		// Utility extensions, feel free to adjust them
-		"coenraads.bracket-pair-colorizer-2",
-		"streetsidesoftware.code-spell-checker",
 		"eamodio.gitlens",
-		"sdras.night-owl"
+		"searKing.preview-vscode",
+		"mechatroner.rainbow-csv"
 	]
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.

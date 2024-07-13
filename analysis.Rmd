@@ -11,6 +11,7 @@ output:
       smooth_scroll: false
 params:
   year: 2024
+  include_brandon: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -26,6 +27,7 @@ library(tidyr)
 library(plotly)
 library(kableExtra)
 library(knitr)
+library(forcats)
 ```
 
 ```{r generate-meta-data}
@@ -64,6 +66,11 @@ bookmaker_info <- data.frame(
     "Sam"
   )
 )
+if (!params$include_brandon) {
+  bookmaker_info <- bookmaker_info %>%
+    filter(bookmaker != "Brandon")
+  bookmaker_info$bookmaker <- droplevels(bookmaker_info$bookmaker)
+}
 bookmaker_info$pair <- ordered(
   bookmaker_info$pair,
   levels = bookmaker_info$bookmaker
@@ -75,10 +82,34 @@ bookmaker_info$pair_name <- with(bookmaker_info, {
 })
 ```
 ```{r generate-ratings}
-raw_ratings <- read_csv(
-    "data/SF Book Club Ratings - Ratings.csv",
-    show_col_types = FALSE
+meta_data <- read_csv(
+  "data/SF Book Club Ratings - Meta.csv",
+  show_col_types = FALSE
+) %>%
+  select(-Link) %>%
+  rename(
+    goodreads_rating = Rating,
+    book = Book,
+    publish_year = Year,
+    pages = Pages,
+    genre = Genre,
+    gender = `Author Gender`
   ) %>%
+  mutate(
+    book = gsub(":.*", "", book),  # Remove subtitles
+    genre = as.factor(genre),
+    gender = factor(
+      gender,
+      c("M", "F", "N", "O"),
+      c("Male", "Female", "Non-binary", "Other")
+    ) %>% replace_na("Other"),
+    gender = fct_lump_n(gender, 2)  # Keep most common 2, rest as Other
+  )
+
+raw_ratings <- read_csv(
+  "data/SF Book Club Ratings - Ratings.csv",
+  show_col_types = FALSE
+) %>%
   select(all_of(c(
     "Healy's Recap",
     "Book Club Date",
@@ -108,6 +139,14 @@ ratings <- raw_ratings %>%
   ) %>%
   drop_na() %>%
   mutate(rating = nchar(rating)) %>%
+  filter(year <= params$year) %>%
+  left_join(meta_data, by = "book")
+
+meta_data <- meta_data %>%
+  left_join(
+    select(raw_ratings, book, year),
+    by = "book"
+  ) %>%
   filter(year <= params$year)
 
 ratings$bookmaker <- ordered(
@@ -158,7 +197,7 @@ bookmakers <- get_ratings_summary("bookmaker")
 books <- get_ratings_summary("book") %>%
   join(book_to_maker, by = "book") %>%
   join(
-     select(raw_ratings, book, year, recap),
+    select(raw_ratings, book, year, recap),
     by = "book"
   ) %>%
   group_by(timeframe) %>%
@@ -167,7 +206,6 @@ books <- get_ratings_summary("book") %>%
     grp_cons = cut(stdev, 2, c("Universally", "Tenatatively"))
   ) %>%
   ungroup()
-
 
 raters <- get_ratings_summary("rater") %>%
   filter(rater != "Guest")
@@ -414,11 +452,34 @@ make_bar_plot <- function(
       ),
       xaxis = list(title = xaxis_title),
       showlegend = color != group
-    )
+    ) %>%
+    config(displayModeBar = FALSE)
     p
 }
 ```
+```{r make-meta-cors}
+meta_cors <- ratings %>%
+  group_by(rater) %>%
+  summarise(
+    across(c(publish_year, pages, goodreads_rating), ~ cor(.x, rating)),
+  )
 
+# Categorical meta vars
+meta_ratings_diffs <- ratings %>%
+  select(rater, rating, genre, gender) %>%
+  pivot_longer(cols = -c(rater, rating)) %>%
+  pivot_wider(
+    id_cols = rater,
+    names_from = value,
+    values_from = rating,
+    values_fn=mean
+  ) %>%
+  mutate(  # Do not change these orders without updating elsewhere too
+    genre = `Fiction` - `Non-fiction`,
+    gender = `Female` - `Male`
+  ) %>%
+  select(rater, genre, gender)
+```
 # Summary Data
 ```{r pull-summary-numbers}
 summary_number <- function(metric) {
@@ -537,6 +598,7 @@ p <- corrplot::corrplot(
 
 ## Couple & Sibling Pairs
 ```{r}
+# TODO: Make this a bar plot
 df <- cors_long %>%
   filter(pair_name %in% bookmaker_info$pair_name) %>%
   arrange(desc(cor)) %>%
@@ -547,4 +609,53 @@ df$Pair <- NULL
 df %>%
   kable(col.names = NULL) %>%
   kable_styling(full_width = FALSE)
+```
+
+# Meta data
+```{r metadata-sections, results="asis"}
+metadata_sections <- list(
+  pages = list(
+    is_categorical = FALSE,
+    title = "Book length",
+    meta_var = "pages",
+    pref_labels = c("shorter books", "longer books")
+  ),
+  publish_year = list(
+    is_categorical = FALSE,
+    title = "Publish year",
+    meta_var = "publish_year",
+    pref_labels = c("older books", "newer books")
+  ),
+  goodreads_rating = list(
+    is_categorical = FALSE,
+    title = "Goodreads rating",
+    meta_var = "goodreads_rating",
+    pref_labels = c("lower rated books", "higher rated books")
+  ),
+  genre = list(
+    is_categorical = TRUE,
+    title = "Fiction vs. Non-fiction",
+    meta_var = "genre",
+    pref_labels = c("non-fiction", "fiction")
+  ),
+  author_gender = list(
+    is_categorical = TRUE,
+    title = "Author gender",
+    meta_var = "gender",
+    distribution_caption = {
+      "Other includes non-binary and multiple authors of different genders."
+    },
+    pref_labels = c("male authors", "female authors")
+  )
+)
+
+res <- lapply(metadata_sections, function(opts) {
+  knit_child(
+    "metadata_section.Rmd",
+    envir = list2env(opts),
+    quiet = TRUE
+  )
+})
+
+cat(unlist(res), sep = "\n")
 ```

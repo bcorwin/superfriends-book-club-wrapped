@@ -1,0 +1,108 @@
+
+```{r}
+if (is_categorical) {
+  cors_df <- meta_ratings_diffs
+} else {
+  cors_df <- meta_cors
+}
+if (!exists("distribution_caption")) distribution_caption <- ""
+pref_labels <- paste("Prefers", pref_labels)
+```
+
+## `r title` {.tabset}
+
+### Distribution
+```{r, fig.height=6, fig.cap = distribution_caption}
+if (!is_categorical) {
+  bar_gap <- 0
+  plot_df <- meta_data %>%
+    mutate(
+      bin = cut_interval(!!as.name(meta_var), n = 15)
+    )
+} else {
+  bar_gap <- NA
+  plot_df <- meta_data %>%
+    mutate(
+      bin = !!as.name(meta_var)
+    )
+}
+
+plot_df <- plot_df %>%
+  mutate(
+    timeframe = ifelse(
+      year == params$year,
+      year,
+      paste0("Pre-", params$year)
+    )
+  ) %>%
+  group_by(timeframe, bin) %>%
+  arrange(!!meta_var) %>%
+  summarise(
+    count = n(),
+    extra_info = ifelse(
+      is_categorical,
+      "",
+      paste0(" (", !!as.name(meta_var), ")")
+    ),
+    books = paste(
+      paste0(book, extra_info),
+      collapse = "<br>"
+    )
+  )
+
+if (!is_categorical) {
+  levels(plot_df$bin) <- stringr::str_replace(
+    levels(plot_df$bin),
+    "[\\(\\[](.*),(.*)\\]",
+    "\\1-\\2"
+  )
+}
+
+plot_df %>%
+  plot_ly(alpha = 0.6) %>%
+  add_bars(
+    hovertext = ~books,
+    color = ~timeframe,
+    colors = c("#7570b3", "#d95f02"),
+    x = ~bin,
+    y = ~count,
+    hovertemplate = paste(
+      "<b>%{y} Book(s):</b>",
+      "%{hovertext}<extra></extra>",
+      sep = "<br>"
+    )
+  ) %>%
+  layout(
+    barmode = "stack",
+    bargap = bar_gap,
+    xaxis = list(
+      title = list(text = "")
+    ),
+    yaxis = list(
+      title = list(text = ""),
+      showticklabels = FALSE
+    )
+  ) %>%
+  config(displayModeBar = FALSE)
+```
+
+### Preferences
+```{r, fig.height=6}
+make_bar_plot(cors_df, "rater", meta_var, color = "rater") %>%
+  add_annotations(
+    text = pref_labels[1],
+    xref = "paper",
+    yref = "paper",
+    x = 0,
+    y = -0.06,
+    showarrow = FALSE
+  ) %>%
+  add_annotations(
+    text = pref_labels[2],
+    xref = "paper",
+    yref = "paper",
+    x = 1,
+    y = -0.06,
+    showarrow = FALSE
+  )
+```
