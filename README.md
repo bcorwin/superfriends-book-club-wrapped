@@ -7,7 +7,7 @@ Then it creates HTML reports for each year.
 
 ## Set-up
 1. Clone the repo
-1. In `R` run `renv::restore()` install libraries
+1. In `R` run `renv::restore()` to install libraries
 
 ## Updating a report
 1. Create a branch
