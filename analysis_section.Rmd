@@ -113,14 +113,26 @@ max_values <- raters_bookmakers == apply(raters_bookmakers, 1, max)
 min_values <- raters_bookmakers == apply(raters_bookmakers, 1, min)
 
 df <- raters_bookmakers %>%
-  mutate(across(where(is.numeric), sprintf, fmt = '%.2f'))
+  mutate(across(where(is.numeric), sprintf, fmt = "%.2f"))
 
-df[max_values] <- cell_spec(df[max_values],
-                            format =  "html",
-                            background = "#ef8a62")
-df[min_values] <- cell_spec(df[min_values],
-                            format =  "html",
-                            background = "#67a9cf")
+for (i in seq_along(df)) {
+  for (j in seq_along(df)) {
+    if (min_values[i, j]) {
+      bg_color <- "#67a9cf"
+    } else if (max_values[i, j]) {
+      bg_color <- "#ef8a62"
+    } else {
+      bg_color <- "#FFFFFF"
+    }
+    df[i, j] <- cell_spec(
+      df[i, j],
+      format =  "html",
+      background = bg_color,
+      underline = i == j
+    )
+  }
+}
+
 df %>%
   kable(format = "html", escape = FALSE, booktabs = TRUE) %>%
   kable_styling() %>%
