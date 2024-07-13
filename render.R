@@ -16,7 +16,7 @@ for (year in years) {
 
   rmarkdown::render(
     "analysis.Rmd",
-    output_file = file.path("output", output_file),
+    output_file = file.path("docs", output_file),
     params = list(year = year),
     envir = new.env()
   )
@@ -27,4 +27,4 @@ page_list <- paste(page_list, sep = "", collapse = "\n")
 
 index_page <- readr::read_file("index_template.html")
 index_page <- glue::glue(index_page)
-write_file(index_page, file.path("output", "index.html"))
+write_file(index_page, file.path("docs", "index.html"))
