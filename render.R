@@ -14,12 +14,12 @@ for (year in years) {
   output_file <- paste0("wrapped_", year, ".html")
   page_list <- c(page_list, output_file)
 
-  # rmarkdown::render(
-  #   "analysis.Rmd",
-  #   output_file = file.path("docs", output_file),
-  #   params = list(year = year),
-  #   envir = new.env()
-  # )
+  rmarkdown::render(
+    "analysis.Rmd",
+    output_file = file.path("docs", output_file),
+    params = list(year = year),
+    envir = new.env()
+  )
 }
 
 page_list <- glue::glue("    <li><a href='{page_list}'>{years}</a></li>")
@@ -27,4 +27,4 @@ page_list <- paste(page_list, sep = "", collapse = "\n")
 
 index_page <- readr::read_file("index_template.html")
 index_page <- glue::glue(index_page)
-write_file(index_page, file.path("docs", "index.html"))
+readr::write_file(index_page, file.path("docs", "index.html"))
