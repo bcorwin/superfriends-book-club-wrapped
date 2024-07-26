@@ -521,7 +521,7 @@ df %>%
     format = "html",
     escape = FALSE,
     booktabs = TRUE,
-    col.names = c(params$year, "To date")
+    col.names = c(params$year, "All")
   ) %>%
   kable_styling()
 ```
