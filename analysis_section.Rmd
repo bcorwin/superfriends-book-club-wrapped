@@ -184,6 +184,9 @@ plot_ly(
   df,
   y = ~stdev,
   x = ~average,
+  color = ~bookmaker,
+  colors = bookmaker_info$color,
+  showlegend = FALSE,
   hovertext = ~book,
   hovertemplate = default_hovertemplate,
   name = "",
@@ -223,12 +226,12 @@ plot_ly(
   ) %>%
   add_annotations(
     data = annotations,
-    y=~V2,
-    x=~V1,
-    text=~V3,
+    y = ~V2,
+    x = ~V1,
+    text = ~V3,
     textangle = ~if_else(V3 %in% c("Liked", "Disliked"), 0, -90),
-    font=list(size=18, style="italic", weight="bold"),
-    showarrow=FALSE
+    font = list(size=18, style="italic", weight="bold"),
+    showarrow = FALSE
   ) %>%
   config(displayModeBar = FALSE)
 ```
