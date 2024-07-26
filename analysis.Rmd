@@ -262,7 +262,8 @@ cors_long <- as.data.frame.table(
 ```{r generate-results-data}
 get_best_worst <- function(timeframe, dataset, metric, type) {
   df <- get(dataset) %>%
-    filter(timeframe == !!timeframe)
+    filter(timeframe == !!timeframe) %>%
+    drop_na()
   target_value <- ifelse(
     type == "best",
     max(df[metric], na.rm = TRUE),
