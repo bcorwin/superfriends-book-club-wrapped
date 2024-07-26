@@ -6,7 +6,6 @@ if (is_categorical) {
   cors_df <- meta_cors
 }
 if (!exists("distribution_caption")) distribution_caption <- ""
-pref_labels <- paste("Prefers", pref_labels)
 ```
 
 ## `r title` {.tabset}
