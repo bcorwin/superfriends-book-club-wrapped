@@ -425,6 +425,12 @@ make_bar_plot <- function(
     filter(timeframe == !!timeframe) %>%
     arrange(across(all_of(metric), desc))
 
+  df[[group]] <- paste(
+    seq_len(nrow(df)),
+    df[[group]],
+    sep = ". "
+  )
+
   if (!is.na(meta)) {
     meta <- df[[meta]]
     hovertemplate <- paste0(hovertemplate, "<br>%{meta}")
@@ -445,18 +451,18 @@ make_bar_plot <- function(
     "average" = "Avg Rating",
     "std" = "Std. Deviation"
   )
-  
+
   p <- plot_ly(
-      type="bar",
-      y=df[[group]],
-      x=df[[metric]],
-      color=df[[color]],
-      colors = bookmaker_info$color,
-      # legendgroup="group1",  # Can't filter to one legend item
-      orientation="h",
-      meta = meta,
-      hovertemplate = hovertemplate
-    ) %>%
+    type = "bar",
+    y = df[[group]],
+    x = df[[metric]],
+    color = df[[color]],
+    colors = bookmaker_info$color,
+    # legendgroup="group1",  # Can't filter to one legend item
+    orientation = "h",
+    meta = meta,
+    hovertemplate = hovertemplate
+  ) %>%
     layout(
       yaxis = list(
         categoryorder = "total ascending",
@@ -466,7 +472,7 @@ make_bar_plot <- function(
       showlegend = color != group
     ) %>%
     config(displayModeBar = FALSE)
-    p
+  p
 }
 ```
 ```{r make-meta-cors}
