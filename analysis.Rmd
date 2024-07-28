@@ -28,6 +28,7 @@ library(plotly)
 library(kableExtra)
 library(knitr)
 library(forcats)
+library(glue)
 ```
 
 ```{r generate-meta-data}
@@ -193,7 +194,6 @@ get_ratings_summary <- function(group) {
   bind_rows(all_summary, current_summary, previous_summary)
 }
 
-bookmakers <- get_ratings_summary("bookmaker")
 books <- get_ratings_summary("book") %>%
   join(book_to_maker, by = "book") %>%
   join(
@@ -206,6 +206,17 @@ books <- get_ratings_summary("book") %>%
     grp_cons = cut(stdev, 2, c("Universally", "Tenatatively"))
   ) %>%
   ungroup()
+
+bookmakers <- get_ratings_summary("bookmaker") %>%
+  left_join(
+    books %>%
+      mutate(
+        book_ratings = glue("{book} ({round(average, 1)})")
+      ) %>%
+      group_by(bookmaker, timeframe) %>%
+      summarise(book_ratings = paste(book_ratings, collapse = "<br>")),
+    by = c("bookmaker", "timeframe")
+  )
 
 raters <- get_ratings_summary("rater") %>%
   filter(rater != "Guest")
@@ -414,20 +425,20 @@ make_bar_plot <- function(
     filter(timeframe == !!timeframe) %>%
     arrange(across(all_of(metric), desc))
 
-  if(!is.na(meta)) {
+  if (!is.na(meta)) {
     meta <- df[[meta]]
     hovertemplate <- paste0(hovertemplate, "<br>%{meta}")
   }
 
-  if(highlight_current) {
+  if (highlight_current) {
     df <- df %>%
-    mutate(
-      book = if_else(
-        year == params$year,
-        paste0("<span style='color:red'>*", book, "</span>"),
-        book
+      mutate(
+        book = if_else(
+          year == params$year,
+          paste0("<span style='color:red'>*", book, "</span>"),
+          book
+        )
       )
-    )
   }
 
   xaxis_title <- switch(metric,
@@ -538,7 +549,8 @@ analysis_sections <- list(
   bookmakers = list(
     title = "Bookmakers",
     dataset = "bookmakers",
-    group = "bookmaker"
+    group = "bookmaker",
+    meta = "book_ratings"
   ),
   raters = list(
     title = "Raters",
