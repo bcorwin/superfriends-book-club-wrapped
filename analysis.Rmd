@@ -84,7 +84,7 @@ bookmaker_info$pair_name <- with(bookmaker_info, {
 ```
 ```{r generate-ratings}
 meta_data <- read_csv(
-  "Data/SF Book Club Ratings - Meta.csv",
+  "data/SF Book Club Ratings - Meta.csv",
   show_col_types = FALSE
 ) %>%
   select(-Link) %>%
@@ -264,7 +264,8 @@ cors_long <- as.data.frame.table(
 ```{r generate-results-data}
 get_best_worst <- function(timeframe, dataset, metric, type) {
   df <- get(dataset) %>%
-    filter(timeframe == !!timeframe)
+    filter(timeframe == !!timeframe) %>%
+    drop_na()
   target_value <- ifelse(
     type == "best",
     max(df[metric], na.rm = TRUE),
@@ -454,7 +455,8 @@ make_bar_plot <- function(
       ),
       xaxis = list(title = xaxis_title),
       showlegend = color != group
-    )
+    ) %>%
+    config(displayModeBar = FALSE)
     p
 }
 ```
@@ -522,7 +524,7 @@ df %>%
     format = "html",
     escape = FALSE,
     booktabs = TRUE,
-    col.names = c(params$year, "To date")
+    col.names = c(params$year, "All")
   ) %>%
   kable_styling()
 ```
@@ -619,25 +621,41 @@ metadata_sections <- list(
     is_categorical = FALSE,
     title = "Book length",
     meta_var = "pages",
-    pref_labels = c("shorter books", "longer books")
+    pref_labels = c(
+      "Prefers shorter books",
+      "Prefers longer books"
+    )
   ),
   publish_year = list(
     is_categorical = FALSE,
     title = "Publish year",
     meta_var = "publish_year",
-    pref_labels = c("older books", "newer books")
+    pref_labels = c(
+      "Prefers older books",
+      "Prefers newer books"
+    )
   ),
   goodreads_rating = list(
     is_categorical = FALSE,
     title = "Goodreads rating",
     meta_var = "goodreads_rating",
-    pref_labels = c("lower rated books", "higher rated books")
+    pref_labels = c(
+      "Prefers lower rated books",
+      "Prefers higher rated books"
+    )
   ),
   genre = list(
     is_categorical = TRUE,
     title = "Fiction vs. Non-fiction",
     meta_var = "genre",
-    pref_labels = c("non-fiction", "fiction")
+    pref_labels = c(
+      ifelse(
+        min(meta_ratings_diffs$genre) >= 0,
+        "No preference",
+        "Prefers non-fiction"
+      ),
+      "Prefers fiction"
+    )
   ),
   author_gender = list(
     is_categorical = TRUE,
@@ -646,7 +664,10 @@ metadata_sections <- list(
     distribution_caption = {
       "Other includes non-binary and multiple authors of different genders."
     },
-    pref_labels = c("male authors", "female authors")
+    pref_labels = c(
+      "Prefers male authors",
+      "Prefers female authors"
+    )
   )
 )
 
