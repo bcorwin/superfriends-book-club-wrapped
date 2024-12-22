@@ -28,6 +28,7 @@ library(plotly)
 library(kableExtra)
 library(knitr)
 library(forcats)
+library(glue)
 ```
 
 ```{r generate-meta-data}
@@ -193,7 +194,8 @@ get_ratings_summary <- function(group) {
   bind_rows(all_summary, current_summary, previous_summary)
 }
 
-bookmakers <- get_ratings_summary("bookmaker")
+bookmakers <- get_ratings_summary("bookmaker") %>%
+  filter(!is.na(bookmaker))
 books <- get_ratings_summary("book") %>%
   join(book_to_maker, by = "book") %>%
   join(
@@ -579,7 +581,7 @@ p <- corrplot::corrplot(
   cors,
   method = 'ellipse',
   order = 'hclust',
-  addrect = 3,  # TODO: Determine this programatically
+  # addrect = 3,  # TODO: Determine this programatically
   type='full',
   diag=FALSE,
   addCoef.col = "black",
