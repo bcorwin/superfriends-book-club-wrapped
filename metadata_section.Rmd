@@ -38,14 +38,10 @@ plot_df <- plot_df %>%
   arrange(!!meta_var) %>%
   summarise(
     count = n(),
-    extra_info = ifelse(
+    books = ifelse(
       is_categorical,
-      "",
-      paste0(" (", !!as.name(meta_var), ")")
-    ),
-    books = paste(
-      paste0(book, extra_info),
-      collapse = "<br>"
+      paste0(book, collapse="<br>"),
+      paste0(book, " (", !!as.name(meta_var), ")", collapse="<br>")
     )
   )
 

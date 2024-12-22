@@ -1,4 +1,5 @@
 ```{r}
+# If interactive: list2env(analysis_sections$bookmakers,globalenv())
 if (!exists("section1_title")) section1_title <- "Best / Worst"
 if (!exists("section1_metrics")) section1_metrics <- c("Best", "Worst")
 if (!exists("section2_title")) section2_title <- "Most / Least Polarizing"
