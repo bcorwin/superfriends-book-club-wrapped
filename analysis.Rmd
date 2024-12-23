@@ -401,6 +401,7 @@ set_result_value(
 ```
 
 ```{r make-functions}
+# TODO: Make it so I can display only X items (top, bottom, and this year)
 make_bar_plot <- function(
   df,
   group,
@@ -528,7 +529,20 @@ df %>%
   ) %>%
   kable_styling()
 ```
-
+## Books read this year
+```{r, results="asis"}
+temp <- ratings %>%
+  filter(year == params$year) %>%
+  select(date, bookmaker, book) %>%
+  distinct() %>%
+  left_join(select(books, book, recap)) %>%
+  distinct() %>%
+  arrange(date) %>%
+  mutate(
+    output = glue("{row_number()}. *{book}*: {recap} ({bookmaker})")
+  )
+cat(temp$output, sep="\n")
+```
 ```{r analysis-sections, results="asis"}
 analysis_sections <- list(
   books = list(
@@ -650,7 +664,8 @@ metadata_sections <- list(
     meta_var = "genre",
     pref_labels = c(
       ifelse(
-        min(meta_ratings_diffs$genre) >= 0,
+        # TODO: Fix this
+        min(meta_ratings_diffs$genre, na.rm = TRUE) >= 0,
         "No preference",
         "Prefers non-fiction"
       ),

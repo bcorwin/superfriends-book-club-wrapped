@@ -83,6 +83,7 @@ plot_df %>%
 
 ### Preferences
 ```{r, fig.height=6}
+# TODO: Hover text should include list of books and their meta var
 make_bar_plot(cors_df, "rater", meta_var, color = "rater") %>%
   add_annotations(
     text = pref_labels[1],
