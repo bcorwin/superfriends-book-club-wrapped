@@ -11,7 +11,6 @@ output:
       smooth_scroll: false
 params:
   year: 2024
-  include_brandon: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -36,50 +35,43 @@ bookmaker_info <- data.frame(
   bookmaker = as.ordered(c(
     "Amanda",
     "Ben",
-    "Brandon",
     "Hannah",
     "Healy",
     "Julia",
     "Kevin",
     "Ryan",
-    "Sam"
+    "Sam",
+    "Katherine"
   )),
   color = c(
     "#1f78bf",
     "#b2df8a",
-    "#cab2d6",
     "#e31a1c",
     "#ff6d01",
     "#ffff99",
     "#33a02c",
     "#a6cee3",
-    "#6a3d9a"
+    "#6a3d9a",
+    "#cab2d6"
   ),
   pair = c(
     "Ben",
     "Amanda",
-    NA,
     "Kevin",
     "Sam",
     "Ryan",
     "Hannah",
     "Julia",
-    "Sam"
+    "Healy",
+    "Julia"
   )
 )
-if (!params$include_brandon) {
-  bookmaker_info <- bookmaker_info %>%
-    filter(bookmaker != "Brandon")
-  bookmaker_info$bookmaker <- droplevels(bookmaker_info$bookmaker)
-}
 bookmaker_info$pair <- ordered(
   bookmaker_info$pair,
-  levels = bookmaker_info$bookmaker
+  levels = levels(bookmaker_info$bookmaker)
 )
 bookmaker_info$pair_name <- with(bookmaker_info, {
-  if_else(!is.na(pair),
-          paste(pmax(bookmaker, pair), "&", pmin(bookmaker, pair)),
-          NA_character_)
+  paste(pmax(bookmaker, pair), "&", pmin(bookmaker, pair))
 })
 ```
 ```{r generate-ratings}
@@ -116,8 +108,10 @@ raw_ratings <- read_csv(
     "Book Club Date",
     "Bookmaker",
     "Book",
-    levels(bookmaker_info$bookmaker),
-    "Guest"
+    levels(bookmaker_info$bookmaker)
+    # TODO: Account for guests
+    # "Guest1",
+    # "Guest1 Name"
   ))) %>%
   rename(
     recap = `Healy's Recap`,
@@ -139,7 +133,6 @@ ratings <- raw_ratings %>%
     values_to = "rating"
   ) %>%
   drop_na() %>%
-  mutate(rating = nchar(rating)) %>%
   filter(year <= params$year) %>%
   left_join(meta_data, by = "book")
 
