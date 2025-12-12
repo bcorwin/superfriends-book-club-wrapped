@@ -33,37 +33,43 @@ library(glue)
 ```{r generate-meta-data}
 bookmaker_info <- data.frame(
   bookmaker = as.ordered(c(
+    "<i>Guest</i>",
+    "<i>Other</i>",
     "Amanda",
     "Ben",
     "Hannah",
     "Healy",
     "Julia",
+    "Katherine",
     "Kevin",
     "Ryan",
-    "Sam",
-    "Katherine"
+    "Sam"
   )),
   color = c(
+    "#242424",
+    "#ADADAD",
     "#1f78bf",
     "#b2df8a",
     "#e31a1c",
     "#ff6d01",
     "#ffff99",
+    "#cab2d6",
     "#33a02c",
     "#a6cee3",
-    "#6a3d9a",
-    "#cab2d6"
+    "#6a3d9a"
   ),
   pair = c(
+    NA,
+    NA,
     "Ben",
     "Amanda",
     "Kevin",
     "Sam",
     "Ryan",
+    "Julia",
     "Hannah",
     "Julia",
-    "Healy",
-    "Julia"
+    "Healy"
   )
 )
 bookmaker_info$pair <- ordered(
@@ -108,7 +114,15 @@ raw_ratings <- read_csv(
     "Book Club Date",
     "Bookmaker",
     "Book",
-    levels(bookmaker_info$bookmaker),
+    "Amanda",
+    "Ben",
+    "Hannah",
+    "Healy",
+    "Julia",
+    "Katherine",
+    "Kevin",
+    "Ryan",
+    "Sam",
     "Guest1",
     "Guest1 Name"
   ))) %>%
@@ -143,7 +157,13 @@ ratings <- raw_ratings %>%
   ) %>%
   drop_na() %>%
   filter(year <= params$year) %>%
-  left_join(meta_data, by = "book")
+  left_join(meta_data, by = "book") %>%
+  mutate(
+    bookmaker = case_when(
+      !(bookmaker %in% bookmaker_info$bookmaker) ~ "<i>Guest</i>",
+      .default = bookmaker
+    )
+  )
 
 meta_data <- meta_data %>%
   left_join(
@@ -463,7 +483,7 @@ make_bar_plot <- function(
             " books</i>",
             strrep("\u200B", limit_group[1])
           ),
-          bookmaker = "Ben",  # TODO: Fix this
+          bookmaker = "<i>Other</i>",
           across(all_of(metric), ~ mean(.x))
         ) %>%
         select(-limit_group)
