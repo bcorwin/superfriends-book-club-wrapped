@@ -410,7 +410,8 @@ make_bar_plot <- function(
   metric,
   color = "bookmaker",
   timeframe = "current",
-  meta = NA
+  meta = NA,
+  limit = NA
 ) {
   highlight_current <- (group == "book") & (timeframe == "all")
   hovertemplate <- "%{x:.2f}"
@@ -418,11 +419,6 @@ make_bar_plot <- function(
   df <- df %>%
     filter(timeframe == !!timeframe) %>%
     arrange(across(all_of(metric), desc))
-
-  if (!is.na(meta)) {
-    meta <- df[[meta]]
-    hovertemplate <- paste0(hovertemplate, "<br>%{meta}")
-  }
 
   if (highlight_current) {
     df <- df %>%
@@ -439,6 +435,47 @@ make_bar_plot <- function(
     "average" = "Avg Rating",
     "std" = "Std. Deviation"
   )
+
+  if (!is.na(limit)) {
+    df <- df %>%
+      mutate(
+        keep = (
+          row_number() <= limit |
+          n() - row_number() < limit |
+          year == params$year |
+          lag(year) == params$year |
+          lead(year) == params$year
+        ),
+        limit_group = cumsum(keep | (!keep & lag(keep, default = FALSE))),
+      )
+    df_limit <- df %>%
+        group_by(limit_group) %>%
+        mutate(book_count = n()) %>%
+        filter(!keep, book_count > 1) %>%
+        ungroup() %>%
+        mutate(limit_group = as.numeric(factor(limit_group))) %>%
+        group_by(limit_group) %>%
+        summarise(
+          recap = paste(book, collapse = "<br>"),
+          book = paste0(
+            "<i>",
+            book_count[1],
+            " books</i>",
+            strrep("\u200B", limit_group[1])
+          ),
+          bookmaker = "Ben",  # TODO: Fix this
+          across(all_of(metric), ~ mean(.x))
+        ) %>%
+        select(-limit_group)
+
+    df <- bind_rows(df_limit, filter(df, keep)) %>%
+      arrange(across(all_of(c(metric, group)), desc))
+  }
+
+  if (!is.na(meta)) {
+    meta <- df[[meta]]
+    hovertemplate <- paste0(hovertemplate, "<br>%{meta}")
+  }
 
   p <- plot_ly(
       type="bar",
@@ -551,7 +588,8 @@ analysis_sections <- list(
     title = "Books",
     dataset = "books",
     group = "book",
-    meta = "recap"
+    meta = "recap",
+    limits = c(10, NA, 1)
   ),
   bookmakers = list(
     title = "Bookmakers",
