@@ -10,7 +10,7 @@ output:
       collapsed: false
       smooth_scroll: false
 params:
-  year: 2024
+  year: 2025
 ---
 
 ```{r setup, include=FALSE}
@@ -108,10 +108,9 @@ raw_ratings <- read_csv(
     "Book Club Date",
     "Bookmaker",
     "Book",
-    levels(bookmaker_info$bookmaker)
-    # TODO: Account for guests
-    # "Guest1",
-    # "Guest1 Name"
+    levels(bookmaker_info$bookmaker),
+    "Guest1",
+    "Guest1 Name"
   ))) %>%
   rename(
     recap = `Healy's Recap`,
@@ -125,8 +124,18 @@ raw_ratings <- read_csv(
     book = gsub(":.*", "", book)  # Remove subtitles
   )
 
+guest_ratings <- raw_ratings %>%
+  select(c("date", "Guest1", "Guest1 Name")) %>%
+  drop_na() %>%
+  pivot_wider(
+    id_cols = "date",
+    names_from = "Guest1 Name",
+    values_from = "Guest1"
+  )
+
 ratings <- raw_ratings %>%
-  select(-recap) %>%
+  select(-c(recap, Guest1, "Guest1 Name")) %>%
+  left_join(guest_ratings, by = "date") %>%
   pivot_longer(
     -c(year, date, bookmaker, book),
     names_to = "rater",
