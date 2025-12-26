@@ -75,7 +75,8 @@ make_bar_plot(
   "stdev",
   color = color_by,
   timeframe = "previous",
-  meta = meta
+  meta = meta,
+  limit = limits[1]
 )
 ```
 ### `r params$year`
@@ -90,7 +91,8 @@ make_bar_plot(
   "stdev",
   color = color_by,
   timeframe = "current",
-  meta = meta
+  meta = meta,
+  limit = limits[2]
 )
 ```
 ### All
@@ -105,7 +107,8 @@ make_bar_plot(
   "stdev",
   color = color_by,
   timeframe = "all",
-  meta = meta
+  meta = meta,
+  limit = limits[3]
 )
 ```
 <!-- TODO: Move additional chunks to their own files and add them as a paramter in the analysis list -->

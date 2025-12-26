@@ -14,6 +14,8 @@ params:
 ---
 
 ```{r setup, include=FALSE}
+# TODO: Fix top / bottom n if there's a tie (see all most / least polarized)
+# TODO: Exclude guest from some places?
 knitr::opts_chunk$set(
   echo = FALSE,
   warning = FALSE,
@@ -423,7 +425,6 @@ set_result_value(
 ```
 
 ```{r make-functions}
-# TODO: Make it so I can display only X items (top, bottom, and this year)
 make_bar_plot <- function(
   df,
   group,
@@ -469,24 +470,24 @@ make_bar_plot <- function(
         limit_group = cumsum(keep | (!keep & lag(keep, default = FALSE))),
       )
     df_limit <- df %>%
-        group_by(limit_group) %>%
-        mutate(book_count = n()) %>%
-        filter(!keep, book_count > 1) %>%
-        ungroup() %>%
-        mutate(limit_group = as.numeric(factor(limit_group))) %>%
-        group_by(limit_group) %>%
-        summarise(
-          recap = paste(book, collapse = "<br>"),
-          book = paste0(
-            "<i>",
-            book_count[1],
-            " books</i>",
-            strrep("\u200B", limit_group[1])
-          ),
-          bookmaker = "<i>Other</i>",
-          across(all_of(metric), ~ mean(.x))
-        ) %>%
-        select(-limit_group)
+      group_by(limit_group) %>%
+      mutate(book_count = n()) %>%
+      filter(!keep, book_count > 1) %>%
+      ungroup() %>%
+      mutate(limit_group = as.numeric(factor(limit_group))) %>%
+      group_by(limit_group) %>%
+      summarise(
+        recap = paste(book, collapse = "<br>"),
+        book = paste0(
+          "<i>",
+          book_count[1],
+          " books</i>",
+          strrep("\u200B", limit_group[1])
+        ),
+        bookmaker = bookmaker_info$bookmaker[2], # "<i>Other</i>",
+        across(all_of(metric), ~ mean(.x))
+      ) %>%
+      select(-limit_group)
 
     df <- bind_rows(df_limit, filter(df, keep)) %>%
       arrange(across(all_of(c(metric, group)), desc))
