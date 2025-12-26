@@ -14,7 +14,6 @@ params:
 ---
 
 ```{r setup, include=FALSE}
-# TODO: Fix top / bottom n if there's a tie (see all most / least polarized)
 # TODO: Exclude guest from some places?
 knitr::opts_chunk$set(
   echo = FALSE,
@@ -461,8 +460,8 @@ make_bar_plot <- function(
     df <- df %>%
       mutate(
         keep = (
-          row_number() <= limit |
-          n() - row_number() < limit |
+          dense_rank(desc(!!sym(metric))) <= limit |
+          dense_rank(!!sym(metric)) <= limit |
           year == params$year |
           lag(year) == params$year |
           lead(year) == params$year
