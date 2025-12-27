@@ -168,7 +168,7 @@ ratings <- raw_ratings %>%
 
 meta_data <- meta_data %>%
   left_join(
-    select(raw_ratings, book, year),
+    select(raw_ratings, book, year, recap),
     by = "book"
   ) %>%
   filter(year <= params$year)
@@ -191,7 +191,8 @@ get_ratings_summary <- function(group) {
       average = mean(rating),
       stdev = sd(rating),
       n = n(),
-      book_count = n_distinct(book)
+      book_count = n_distinct(book),
+      books = paste0(sort(unique(book)), collapse = "<br>")
     ) %>%
     mutate(timeframe = "all")
   current_summary <- ratings %>%
@@ -201,7 +202,8 @@ get_ratings_summary <- function(group) {
       average = mean(rating),
       stdev = sd(rating),
       n = n(),
-      book_count = n_distinct(book)
+      book_count = n_distinct(book),
+      books = paste0(sort(unique(book)), collapse = "<br>")
     ) %>%
     mutate(timeframe = "current")
   previous_summary <- ratings %>%
@@ -211,7 +213,8 @@ get_ratings_summary <- function(group) {
       average = mean(rating),
       stdev = sd(rating),
       n = n(),
-      book_count = n_distinct(book)
+      book_count = n_distinct(book),
+      books = paste0(sort(unique(book)), collapse = "<br>")
     ) %>%
     mutate(timeframe = "previous")
   bind_rows(all_summary, current_summary, previous_summary)
@@ -219,6 +222,7 @@ get_ratings_summary <- function(group) {
 
 bookmakers <- get_ratings_summary("bookmaker") %>%
   filter(!is.na(bookmaker))
+
 books <- get_ratings_summary("book") %>%
   join(book_to_maker, by = "book") %>%
   join(
@@ -236,7 +240,6 @@ raters <- get_ratings_summary("rater") %>%
   filter(rater != "Guest")
 raters_bookmakers <- get_ratings_summary(c("rater", "bookmaker")) %>%
   filter(
-    rater != "Brandon", bookmaker != "Brandon",
     !is.na(rater),
     timeframe == "all"
   ) %>%
@@ -478,9 +481,7 @@ make_bar_plot <- function(
       summarise(
         recap = paste(book, collapse = "<br>"),
         book = paste0(
-          "<i>",
-          book_count[1],
-          " books</i>",
+          "...",
           strrep("\u200B", limit_group[1])
         ),
         bookmaker = bookmaker_info$bookmaker[2], # "<i>Other</i>",
@@ -614,7 +615,8 @@ analysis_sections <- list(
   bookmakers = list(
     title = "Bookmakers",
     dataset = "bookmakers",
-    group = "bookmaker"
+    group = "bookmaker",
+    meta = "books"
   ),
   raters = list(
     title = "Raters",
@@ -648,6 +650,7 @@ Least: `r get_result_value("all", "cors", "pairwise", "min")`
 
 ```{r corr-plot}
 # TODO: compare this to last year (do the same for all the ones that are "all" only)
+# TODO: box or violin plots for all(?) sections
 mat <- cors
 diag(mat) <- NA
 max_cors <- apply(mat, 1, max, na.rm = TRUE)
