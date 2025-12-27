@@ -36,6 +36,7 @@ bookmaker_info <- data.frame(
   bookmaker = as.ordered(c(
     "<i>Guest</i>",
     "<i>Other</i>",
+    "<i>Overall</i>",
     "Amanda",
     "Ben",
     "Hannah",
@@ -49,6 +50,7 @@ bookmaker_info <- data.frame(
   color = c(
     "#242424",
     "#ADADAD",
+    "#ADADAD",
     "#1f78bf",
     "#b2df8a",
     "#e31a1c",
@@ -60,6 +62,7 @@ bookmaker_info <- data.frame(
     "#6a3d9a"
   ),
   pair = c(
+    NA,
     NA,
     NA,
     "Ben",
@@ -80,6 +83,9 @@ bookmaker_info$pair <- ordered(
 bookmaker_info$pair_name <- with(bookmaker_info, {
   paste(pmax(bookmaker, pair), "&", pmin(bookmaker, pair))
 })
+guest_factor <- bookmaker_info$bookmaker[1]
+other_factor <- bookmaker_info$bookmaker[2]
+overall_factor <- bookmaker_info$bookmaker[3]
 ```
 ```{r generate-ratings}
 meta_data <- read_csv(
@@ -484,7 +490,7 @@ make_bar_plot <- function(
           "...",
           strrep("\u200B", limit_group[1])
         ),
-        bookmaker = bookmaker_info$bookmaker[2], # "<i>Other</i>",
+        bookmaker = other_factor,
         across(all_of(metric), ~ mean(.x))
       ) %>%
       select(-limit_group)
@@ -526,10 +532,19 @@ meta_cors <- ratings %>%
   group_by(rater) %>%
   summarise(
     across(c(publish_year, pages, goodreads_rating), ~ cor(.x, rating)),
+  ) %>%
+  drop_na() %>%
+  bind_rows(
+    ratings %>%
+      summarise(
+        across(c(publish_year, pages, goodreads_rating), ~ cor(.x, rating)),
+      ) %>%
+      mutate(rater = overall_factor)
   )
 
 # Categorical meta vars
 meta_ratings_diffs <- ratings %>%
+  bind_rows(mutate(ratings, rater = overall_factor)) %>%
   select(rater, rating, genre, gender) %>%
   pivot_longer(cols = -c(rater, rating)) %>%
   pivot_wider(
