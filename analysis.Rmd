@@ -81,7 +81,7 @@ bookmaker_info$pair <- ordered(
   levels = levels(bookmaker_info$bookmaker)
 )
 bookmaker_info$pair_name <- with(bookmaker_info, {
-  paste(pmax(bookmaker, pair), "&", pmin(bookmaker, pair))
+  paste(pmin(bookmaker, pair), "&", pmax(bookmaker, pair))
 })
 guest_factor <- bookmaker_info$bookmaker[1]
 other_factor <- bookmaker_info$bookmaker[2]
@@ -288,7 +288,7 @@ cors_long <- as.data.frame.table(
     responseName = "cor",
     stringsAsFactors = FALSE
   ) %>%
-  filter(Var1 > Var2) %>%
+  filter(Var1 < Var2) %>%
   mutate(pair_name = paste(Var1, "&", Var2)) %>%
   select(-Var1, -Var2) %>%
   arrange(-cor)
