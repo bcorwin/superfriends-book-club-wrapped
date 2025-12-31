@@ -14,7 +14,6 @@ params:
 ---
 
 ```{r setup, include=FALSE}
-# TODO: Exclude guest from some places?
 knitr::opts_chunk$set(
   echo = FALSE,
   warning = FALSE,
@@ -247,7 +246,8 @@ raters <- get_ratings_summary("rater") %>%
 raters_bookmakers <- get_ratings_summary(c("rater", "bookmaker")) %>%
   filter(
     !is.na(rater),
-    timeframe == "all"
+    timeframe == "all",
+    bookmaker != guest_factor
   ) %>%
   select(rater, bookmaker, average) %>%
   pivot_wider(names_from = bookmaker, values_from = average) %>%
