@@ -657,7 +657,7 @@ cat(unlist(res), sep = "\n")
 
 # Preference Similarity
 
-## Most / Least Similar
+## Similarity rankings
 
 Most: `r get_result_value("all", "cors", "pairwise", "max")`
 
@@ -668,27 +668,42 @@ Least: `r get_result_value("all", "cors", "pairwise", "min")`
 # TODO: box or violin plots for all(?) sections
 mat <- cors
 diag(mat) <- NA
-max_cors <- apply(mat, 1, max, na.rm = TRUE)
-min_cors <- apply(mat, 1, min, na.rm = TRUE)
 
-p <- corrplot::corrplot(
-  cors,
-  method = 'ellipse',
-  order = 'hclust',
-  # addrect = 3,  # TODO: Determine this programatically
-  type='full',
-  diag=FALSE,
-  addCoef.col = "black",
-  number.cex = .75,
-  tl.col="black",
-  tl.pos = 'd',
-  tl.cex = 0.75,
-  p.mat = mat == max_cors | mat == min_cors,
-  insig = "pch",
-  pch = 0,
-  pch.cex = 5,
-  pch.col = "#D3D3D3"
+ranking_df <- apply(mat, 1, function(x) {
+  names(sort(x, decreasing = TRUE, na.last = NA))
+})
+ranking_df <- as.data.frame(t(ranking_df))
+colnames(ranking_df) <- column_names <- c(
+  "Most",
+  "2nd",
+  "3rd",
+  paste0(seq(4, ncol(ranking_df) - 1), "th"),
+  "Least"
 )
+
+values_df <- as.data.frame(t(apply(mat, 1, function(x) {
+  sort(x, decreasing = TRUE, na.last = NA)
+})))
+color_func <- function(x) {
+  scales::col_numeric(
+    palette = c("#ef8a62", "#f7f7f7", "#67a9cf"),
+    domain = c(-1, 1)
+  )(x)
+}
+
+final_table <- ranking_df |>
+  kable(escape = FALSE) |>
+  kable_styling("striped", full_width = FALSE)
+for (i in seq_len(ncol(ranking_df))) {
+  final_table <- final_table |>
+    column_spec(
+      i + 1,
+      background = color_func(values_df[[i]]),
+      color = ifelse(values_df[[i]] > 0.7, "white", "black")
+    )
+}
+
+final_table
 ```
 
 ## Couple & Sibling Pairs
