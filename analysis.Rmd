@@ -165,6 +165,7 @@ ratings <- raw_ratings %>%
   filter(year <= params$year) %>%
   left_join(meta_data, by = "book") %>%
   mutate(
+    current = year == params$year,
     bookmaker = case_when(
       !(bookmaker %in% bookmaker_info$bookmaker) ~ "<i>Guest</i>",
       .default = bookmaker
@@ -201,7 +202,7 @@ get_ratings_summary <- function(group) {
     ) %>%
     mutate(timeframe = "all")
   current_summary <- ratings %>%
-    filter(year == params$year) %>%
+    filter(current) %>%
     group_by_at(group) %>%
     dplyr::summarise(
       average = mean(rating),
@@ -212,7 +213,7 @@ get_ratings_summary <- function(group) {
     ) %>%
     mutate(timeframe = "current")
   previous_summary <- ratings %>%
-    filter(year < params$year) %>%
+    filter(!current) %>%
     group_by_at(group) %>%
     dplyr::summarise(
       average = mean(rating),
@@ -224,9 +225,6 @@ get_ratings_summary <- function(group) {
     mutate(timeframe = "previous")
   bind_rows(all_summary, current_summary, previous_summary)
 }
-
-bookmakers <- get_ratings_summary("bookmaker") %>%
-  filter(!is.na(bookmaker))
 
 books <- get_ratings_summary("book") %>%
   join(book_to_maker, by = "book") %>%
@@ -241,8 +239,71 @@ books <- get_ratings_summary("book") %>%
   ) %>%
   ungroup()
 
-raters <- get_ratings_summary("rater") %>%
-  filter(rater != "Guest")
+bookmakers <- get_ratings_summary("bookmaker") |>
+  filter(rater != "Guest") |>
+  left_join(
+    books |>
+      arrange(desc(average)) |>
+      group_by(bookmaker, timeframe) |>
+      summarise(
+        book_averages = paste0(
+          book, ": ",
+          format(round(average, 2), nsmall = 2),
+          collapse = "<br>"
+        )
+      ),
+    by = c("bookmaker", "timeframe")
+  ) |>
+  left_join(
+    books |>
+      arrange(desc(stdev)) |>
+      group_by(bookmaker, timeframe) |>
+      summarise(
+        book_stdevs = paste0(
+          book, ": ",
+          format(round(stdev, 2), nsmall = 2),
+          collapse = "<br>"
+        )
+      ),
+    by = c("bookmaker", "timeframe")
+  )
+
+rater_books_ranked <- bind_rows(
+  mutate(ratings, timeframe = "all"),
+  mutate(ratings, timeframe = if_else(current, "current", "previous"))
+) |>
+  select(rater, book, rating, timeframe) |>
+  group_by(rater, timeframe) |>
+  mutate(
+    least_favorite = rating == min(rating),
+    favorite = rating == max(rating)
+  ) |>
+  filter(least_favorite | favorite) |>
+  group_by(rater, timeframe) |>
+  summarise(
+    favorite_books = paste0(
+      "<b>Favorites: (rating=", max(rating), ")</b><br>",
+      paste0(book[favorite], collapse = "<br>")
+    ),
+    least_favorite_books = paste0(
+      "<b>Least favorites: (rating=", min(rating), ")</b><br>",
+      paste0(book[!favorite], collapse = "<br>")
+    ),
+  ) |>
+  unite(
+    "ranked_books",
+    c(favorite_books, least_favorite_books),
+    sep = "<br><br>",
+    remove = TRUE
+  )
+
+raters <- get_ratings_summary("rater") |>
+  filter(rater != "Guest") |>
+  left_join(
+    rater_books_ranked,
+    by = c("rater", "timeframe")
+  )
+
 raters_bookmakers <- get_ratings_summary(c("rater", "bookmaker")) %>%
   filter(
     !is.na(rater),
@@ -631,12 +692,13 @@ analysis_sections <- list(
     title = "Bookmakers",
     dataset = "bookmakers",
     group = "bookmaker",
-    meta = "books"
+    meta = c("book_averages", "book_stdevs")
   ),
   raters = list(
     title = "Raters",
     dataset = "raters",
     group = "rater",
+    meta = c("ranked_books", NA),
     section1_title = "Highest / Lowest",
     section1_metrics = c("Highest", "Lowest"),
     section2_title = "Most / Least Variable",

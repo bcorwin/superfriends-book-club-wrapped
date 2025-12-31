@@ -6,6 +6,8 @@ if (!exists("section2_title")) section2_title <- "Most / Least Polarizing"
 if (!exists("color_by")) color_by <- "bookmaker"
 if (!exists("meta")) meta <- NA
 if (!exists("limits")) limits <- c(NA, NA, NA)
+
+if (length(meta) == 1) meta <- rep(meta, 2)
 ```
 
 # `r title`
@@ -23,7 +25,7 @@ make_bar_plot(
   "average",
   color = color_by,
   timeframe = "previous",
-  meta = meta,
+  meta = meta[1],
   limit = limits[1]
 )
 ```
@@ -40,7 +42,7 @@ make_bar_plot(
   "average",
   color = color_by,
   timeframe = "current",
-  meta = meta,
+  meta = meta[1],
   limit = limits[2]
 )
 ```
@@ -57,7 +59,7 @@ make_bar_plot(
   "average",
   color = color_by,
   timeframe = "all",
-  meta = meta,
+  meta = meta[1],
   limit = limits[3]
 )
 ```
@@ -75,7 +77,7 @@ make_bar_plot(
   "stdev",
   color = color_by,
   timeframe = "previous",
-  meta = meta,
+  meta = meta[2],
   limit = limits[1]
 )
 ```
@@ -91,7 +93,7 @@ make_bar_plot(
   "stdev",
   color = color_by,
   timeframe = "current",
-  meta = meta,
+  meta = meta[2],
   limit = limits[2]
 )
 ```
@@ -107,7 +109,7 @@ make_bar_plot(
   "stdev",
   color = color_by,
   timeframe = "all",
-  meta = meta,
+  meta = meta[2],
   limit = limits[3]
 )
 ```
