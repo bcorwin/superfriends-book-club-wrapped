@@ -675,7 +675,7 @@ temp <- ratings %>%
   distinct() %>%
   arrange(date) %>%
   mutate(
-    output = glue("{row_number()}. *{book}*: {recap} ({bookmaker})")
+    output = glue("{row_number()}. {bookmaker}'s *{book}*: {recap}")
   )
 cat(temp$output, sep="\n")
 ```
