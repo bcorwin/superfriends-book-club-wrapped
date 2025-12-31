@@ -240,7 +240,7 @@ books <- get_ratings_summary("book") %>%
   ungroup()
 
 bookmakers <- get_ratings_summary("bookmaker") |>
-  filter(rater != "Guest") |>
+  filter(bookmaker != "Guest") |>
   left_join(
     books |>
       arrange(desc(average)) |>
