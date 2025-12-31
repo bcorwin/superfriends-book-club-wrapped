@@ -30,51 +30,17 @@ library(forcats)
 library(glue)
 ```
 
-```{r generate-meta-data}
-bookmaker_info <- data.frame(
-  bookmaker = as.ordered(c(
-    "<i>Guest</i>",
-    "<i>Other</i>",
-    "<i>Overall</i>",
-    "Amanda",
-    "Ben",
-    "Hannah",
-    "Healy",
-    "Julia",
-    "Katherine",
-    "Kevin",
-    "Ryan",
-    "Sam"
-  )),
-  color = c(
-    "#242424",
-    "#ADADAD",
-    "#ADADAD",
-    "#1f78bf",
-    "#b2df8a",
-    "#e31a1c",
-    "#ff6d01",
-    "#ffff99",
-    "#cab2d6",
-    "#33a02c",
-    "#a6cee3",
-    "#6a3d9a"
+```{r generate-bookmaker-info}
+bookmaker_info <- read_fwf(
+  "data/bookmaker_info.txt",
+  col_positions = fwf_empty(
+    "data/bookmaker_info.txt", 
+    col_names = c("bookmaker", "color", "pair")
   ),
-  pair = c(
-    NA,
-    NA,
-    NA,
-    "Ben",
-    "Amanda",
-    "Kevin",
-    "Sam",
-    "Ryan",
-    "Julia",
-    "Hannah",
-    "Julia",
-    "Healy"
-  )
+  show_col_types = FALSE
 )
+
+bookmaker_info$bookmaker <- as.ordered(bookmaker_info$bookmaker)
 bookmaker_info$pair <- ordered(
   bookmaker_info$pair,
   levels = levels(bookmaker_info$bookmaker)
@@ -82,6 +48,7 @@ bookmaker_info$pair <- ordered(
 bookmaker_info$pair_name <- with(bookmaker_info, {
   paste(pmin(bookmaker, pair), "&", pmax(bookmaker, pair))
 })
+
 guest_factor <- bookmaker_info$bookmaker[1]
 other_factor <- bookmaker_info$bookmaker[2]
 overall_factor <- bookmaker_info$bookmaker[3]
