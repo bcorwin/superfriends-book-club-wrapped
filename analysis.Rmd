@@ -240,7 +240,7 @@ books <- get_ratings_summary("book") %>%
   ungroup()
 
 bookmakers <- get_ratings_summary("bookmaker") |>
-  filter(bookmaker != "Guest") |>
+  filter(bookmaker != guest_factor) |>
   left_join(
     books |>
       arrange(desc(average)) |>
@@ -298,7 +298,7 @@ rater_books_ranked <- bind_rows(
   )
 
 raters <- get_ratings_summary("rater") |>
-  filter(rater != "Guest") |>
+  filter(rater != guest_factor) |>
   left_join(
     rater_books_ranked,
     by = c("rater", "timeframe")
