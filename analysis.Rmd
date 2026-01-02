@@ -412,6 +412,22 @@ for (timeframe in c("all", "current")) {
     "books"
   )
 
+  books |>
+    filter(timeframe == !!timeframe) |>
+    inner_join(meta_data, by = "book") |>
+    summarise(pages = sum(pages)) |>
+    mutate(pages) |>
+    pull() |>
+    scales::label_comma(
+      accuracy = 0.1,
+      scale_cut = scales::cut_short_scale(),
+    )() |>
+    set_result_value(
+      timeframe,
+      "summary",
+      "pages"
+    )
+
   if (timeframe == "all") {
     set_result_value(
       filter(bookmakers, timeframe == "all") %>%
@@ -600,7 +616,8 @@ df <- data.frame(
     "Current cycle",
     "Books read",
     "Number of ratings",
-    "Avg days between meetings"
+    "Avg days between meetings",
+    "Pages read"
   ),
   current = c(
     "",
@@ -610,7 +627,8 @@ df <- data.frame(
       as.integer(summary_number("days_since")$current) /
         as.integer(summary_number("books")$current),
       1
-    )
+    ),
+    summary_number("pages")$current
   ),
   all = c(
     summary_number("cycle")$all,
@@ -620,7 +638,8 @@ df <- data.frame(
       as.integer(summary_number("days_since")$all) /
         as.integer(summary_number("books")$all),
       1
-    )
+    ),
+    summary_number("pages")$all
   )
 )
 df %>%
