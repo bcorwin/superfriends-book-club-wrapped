@@ -154,6 +154,21 @@ df %>%
   kable_styling() %>%
   add_header_above(c(" " = 1, "Bookmaker" = ncol(df)))
 ```
+```{r, eval = (dataset == "raters") & (params$year > 2020), results = "asis"}
+cat("## Renegades", sep = "\n")
+source("renegade.r")
+renegade_results <- get_renegade()
+
+cat(paste("Biggest lover:", renegade_results$biggest_lovers), "\n\n")
+cat(paste("Biggest hater:", renegade_results$biggest_haters), "\n")
+```
+```{r, eval = (dataset == "raters") & (params$year > 2020), fig.width=9}
+renegade_results$plot
+```
+```{r, eval = (dataset == "raters") & (params$year > 2020), fig.width=9, results = "asis"}
+cat("\n### Renegade voter summary\n")
+renegade_results$table
+```
 
 ```{r, eval = (dataset == "books"), results = "asis"}
 cat("## Rating groups", sep = "\n")
