@@ -115,6 +115,16 @@ make_bar_plot(
 ```
 <!-- TODO: Move additional chunks to their own files and add them as a paramter in the analysis list -->
 ```{r, eval = (dataset == "raters") & (params$year > 2020), results = "asis"}
+source("likert.r")
+liker_results <- get_liker()
+cat("## Rating distribution", sep = "\n")
+```
+
+```{r, eval = (dataset == "raters") & (params$year > 2020)}
+liker_results$plot
+```
+
+```{r, eval = (dataset == "raters") & (params$year > 2020), results = "asis"}
 cat("## Favorite / Least Favorite Bookmaker", sep = "\n")
 ```
 ```{r, eval = (dataset == "raters") & (params$year > 2020)}
