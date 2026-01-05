@@ -597,13 +597,15 @@ meta_ratings_diffs <- ratings %>%
     values_from = rating,
     values_fn=mean
   ) %>%
-  mutate(  # Do not change these orders without updating elsewhere too
+  mutate(  # Do not change these orders without updating downstream too
     genre = `Fiction` - `Non-fiction`,
     gender = `Female` - `Male`
   ) %>%
   select(rater, genre, gender)
 ```
-# Summary Data
+[Source rating data](https://docs.google.com/spreadsheets/d/10o_hAeYeQOCet3tj5Mu2wj8dxeeu9ItoTNb9mbCBjV0/edit?usp=drivesdk)
+
+# Overview
 ```{r pull-summary-numbers}
 summary_number <- function(metric) {
   list(
@@ -651,7 +653,7 @@ df %>%
   ) %>%
   kable_styling()
 ```
-## Books read this year
+# Books read this year
 ```{r, results="asis"}
 temp <- ratings %>%
   filter(year == params$year) %>%

@@ -72,12 +72,12 @@ get_renegade <- function() {
       xaxis = list(
         showticklabels = FALSE,
         showgrid = FALSE,
-        title = "Group median rating"
+        title = "Book"
       ),
       yaxis = list(
         showgrid = FALSE,
         dtick = 1,
-        title = "Individual score"
+        title = "Individual score (with median)"
       )
     ) |>
     config(displayModeBar = FALSE)
