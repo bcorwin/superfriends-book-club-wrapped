@@ -5,6 +5,9 @@ if (!exists("section1_metrics")) section1_metrics <- c("Best", "Worst")
 if (!exists("section2_title")) section2_title <- "Most / Least Polarizing"
 if (!exists("color_by")) color_by <- "bookmaker"
 if (!exists("meta")) meta <- NA
+if (!exists("limits")) limits <- c(NA, NA, NA)
+
+if (length(meta) == 1) meta <- rep(meta, 2)
 ```
 
 # `r title`
@@ -22,7 +25,8 @@ make_bar_plot(
   "average",
   color = color_by,
   timeframe = "previous",
-  meta = meta
+  meta = meta[1],
+  limit = limits[1]
 )
 ```
 ### `r params$year`
@@ -38,7 +42,8 @@ make_bar_plot(
   "average",
   color = color_by,
   timeframe = "current",
-  meta = meta
+  meta = meta[1],
+  limit = limits[2]
 )
 ```
 ### All
@@ -54,7 +59,8 @@ make_bar_plot(
   "average",
   color = color_by,
   timeframe = "all",
-  meta = meta
+  meta = meta[1],
+  limit = limits[3]
 )
 ```
 
@@ -71,7 +77,8 @@ make_bar_plot(
   "stdev",
   color = color_by,
   timeframe = "previous",
-  meta = meta
+  meta = meta[2],
+  limit = limits[1]
 )
 ```
 ### `r params$year`
@@ -86,7 +93,8 @@ make_bar_plot(
   "stdev",
   color = color_by,
   timeframe = "current",
-  meta = meta
+  meta = meta[2],
+  limit = limits[2]
 )
 ```
 ### All
@@ -101,26 +109,43 @@ make_bar_plot(
   "stdev",
   color = color_by,
   timeframe = "all",
-  meta = meta
+  meta = meta[2],
+  limit = limits[3]
 )
 ```
 <!-- TODO: Move additional chunks to their own files and add them as a paramter in the analysis list -->
+```{r, eval = (dataset == "raters") & (params$year > 2020), results = "asis"}
+source("likert.r")
+liker_results <- get_liker()
+cat("## Rating distribution", sep = "\n")
+```
+
+```{r, eval = (dataset == "raters") & (params$year > 2020)}
+liker_results$plot
+```
+
 ```{r, eval = (dataset == "raters") & (params$year > 2020), results = "asis"}
 cat("## Favorite / Least Favorite Bookmaker", sep = "\n")
 ```
 ```{r, eval = (dataset == "raters") & (params$year > 2020)}
 # Note: all time only
-max_values <- raters_bookmakers == apply(raters_bookmakers, 1, max)
-min_values <- raters_bookmakers == apply(raters_bookmakers, 1, min)
+max_values <- (
+  raters_bookmakers == apply(raters_bookmakers, 1, max, na.rm = TRUE)
+)
+min_values <- (
+  raters_bookmakers == apply(raters_bookmakers, 1, min, na.rm = TRUE)
+)
 
 df <- raters_bookmakers %>%
   mutate(across(where(is.numeric), sprintf, fmt = "%.2f"))
 
-for (i in seq_along(df)) {
-  for (j in seq_along(df)) {
-    if (min_values[i, j]) {
+for (i in seq_len(nrow(df))) {
+  for (j in seq_len(ncol(df))) {
+    is_min <- coalesce(min_values[i, j], FALSE)
+    is_max <- coalesce(max_values[i, j], FALSE)
+    if (is_min) {
       bg_color <- "#67a9cf"
-    } else if (max_values[i, j]) {
+    } else if (is_max) {
       bg_color <- "#ef8a62"
     } else {
       bg_color <- "#FFFFFF"
@@ -138,6 +163,21 @@ df %>%
   kable(format = "html", escape = FALSE, booktabs = TRUE) %>%
   kable_styling() %>%
   add_header_above(c(" " = 1, "Bookmaker" = ncol(df)))
+```
+```{r, eval = (dataset == "raters") & (params$year > 2020), results = "asis"}
+cat("## Renegades", sep = "\n")
+source("renegade.r")
+renegade_results <- get_renegade()
+
+cat(paste("Biggest lover:", renegade_results$biggest_lovers), "\n\n")
+cat(paste("Biggest hater:", renegade_results$biggest_haters), "\n")
+```
+```{r, eval = (dataset == "raters") & (params$year > 2020), fig.width=9}
+renegade_results$plot
+```
+```{r, eval = (dataset == "raters") & (params$year > 2020), fig.width=9, results = "asis"}
+cat("\n### Renegade voter summary\n")
+renegade_results$table
 ```
 
 ```{r, eval = (dataset == "books"), results = "asis"}

@@ -1,0 +1,12 @@
+<i>Guest</i>   #242424       
+<i>Other</i>   #ADADAD       
+<i>Overall</i> #ADADAD       
+Amanda         #1f78bf Ben   
+Ben            #b2df8a Amanda
+Hannah         #e31a1c Kevin 
+Healy          #ff6d01 Sam   
+Julia          #ffff99 Ryan  
+Katherine      #cab2d6 Julia 
+Kevin          #33a02c Hannah
+Ryan           #a6cee3 Julia 
+Sam            #6a3d9a Healy 

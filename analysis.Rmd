@@ -10,8 +10,7 @@ output:
       collapsed: false
       smooth_scroll: false
 params:
-  year: 2024
-  include_brandon: FALSE
+  year: 2025
 ---
 
 ```{r setup, include=FALSE}
@@ -31,56 +30,28 @@ library(forcats)
 library(glue)
 ```
 
-```{r generate-meta-data}
-bookmaker_info <- data.frame(
-  bookmaker = as.ordered(c(
-    "Amanda",
-    "Ben",
-    "Brandon",
-    "Hannah",
-    "Healy",
-    "Julia",
-    "Kevin",
-    "Ryan",
-    "Sam"
-  )),
-  color = c(
-    "#1f78bf",
-    "#b2df8a",
-    "#cab2d6",
-    "#e31a1c",
-    "#ff6d01",
-    "#ffff99",
-    "#33a02c",
-    "#a6cee3",
-    "#6a3d9a"
+```{r generate-bookmaker-info}
+bookmaker_info <- read_fwf(
+  "data/bookmaker_info.txt",
+  col_positions = fwf_empty(
+    "data/bookmaker_info.txt", 
+    col_names = c("bookmaker", "color", "pair")
   ),
-  pair = c(
-    "Ben",
-    "Amanda",
-    NA,
-    "Kevin",
-    "Sam",
-    "Ryan",
-    "Hannah",
-    "Julia",
-    "Sam"
-  )
+  show_col_types = FALSE
 )
-if (!params$include_brandon) {
-  bookmaker_info <- bookmaker_info %>%
-    filter(bookmaker != "Brandon")
-  bookmaker_info$bookmaker <- droplevels(bookmaker_info$bookmaker)
-}
+
+bookmaker_info$bookmaker <- as.ordered(bookmaker_info$bookmaker)
 bookmaker_info$pair <- ordered(
   bookmaker_info$pair,
-  levels = bookmaker_info$bookmaker
+  levels = levels(bookmaker_info$bookmaker)
 )
 bookmaker_info$pair_name <- with(bookmaker_info, {
-  if_else(!is.na(pair),
-          paste(pmax(bookmaker, pair), "&", pmin(bookmaker, pair)),
-          NA_character_)
+  paste(pmin(bookmaker, pair), "&", pmax(bookmaker, pair))
 })
+
+guest_factor <- bookmaker_info$bookmaker[1]
+other_factor <- bookmaker_info$bookmaker[2]
+overall_factor <- bookmaker_info$bookmaker[3]
 ```
 ```{r generate-ratings}
 meta_data <- read_csv(
@@ -116,8 +87,17 @@ raw_ratings <- read_csv(
     "Book Club Date",
     "Bookmaker",
     "Book",
-    levels(bookmaker_info$bookmaker),
-    "Guest"
+    "Amanda",
+    "Ben",
+    "Hannah",
+    "Healy",
+    "Julia",
+    "Katherine",
+    "Kevin",
+    "Ryan",
+    "Sam",
+    "Guest1",
+    "Guest1 Name"
   ))) %>%
   rename(
     recap = `Healy's Recap`,
@@ -131,21 +111,37 @@ raw_ratings <- read_csv(
     book = gsub(":.*", "", book)  # Remove subtitles
   )
 
+guest_ratings <- raw_ratings %>%
+  select(c("date", "Guest1", "Guest1 Name")) %>%
+  drop_na() %>%
+  pivot_wider(
+    id_cols = "date",
+    names_from = "Guest1 Name",
+    values_from = "Guest1"
+  )
+
 ratings <- raw_ratings %>%
-  select(-recap) %>%
+  select(-c(recap, Guest1, "Guest1 Name")) %>%
+  left_join(guest_ratings, by = "date") %>%
   pivot_longer(
     -c(year, date, bookmaker, book),
     names_to = "rater",
     values_to = "rating"
   ) %>%
   drop_na() %>%
-  mutate(rating = nchar(rating)) %>%
   filter(year <= params$year) %>%
-  left_join(meta_data, by = "book")
+  left_join(meta_data, by = "book") %>%
+  mutate(
+    current = year == params$year,
+    bookmaker = case_when(
+      !(bookmaker %in% bookmaker_info$bookmaker) ~ "<i>Guest</i>",
+      .default = bookmaker
+    )
+  )
 
 meta_data <- meta_data %>%
   left_join(
-    select(raw_ratings, book, year),
+    select(raw_ratings, book, year, recap),
     by = "book"
   ) %>%
   filter(year <= params$year)
@@ -168,34 +164,35 @@ get_ratings_summary <- function(group) {
       average = mean(rating),
       stdev = sd(rating),
       n = n(),
-      book_count = n_distinct(book)
+      book_count = n_distinct(book),
+      books = paste0(sort(unique(book)), collapse = "<br>")
     ) %>%
     mutate(timeframe = "all")
   current_summary <- ratings %>%
-    filter(year == params$year) %>%
+    filter(current) %>%
     group_by_at(group) %>%
     dplyr::summarise(
       average = mean(rating),
       stdev = sd(rating),
       n = n(),
-      book_count = n_distinct(book)
+      book_count = n_distinct(book),
+      books = paste0(sort(unique(book)), collapse = "<br>")
     ) %>%
     mutate(timeframe = "current")
   previous_summary <- ratings %>%
-    filter(year < params$year) %>%
+    filter(!current) %>%
     group_by_at(group) %>%
     dplyr::summarise(
       average = mean(rating),
       stdev = sd(rating),
       n = n(),
-      book_count = n_distinct(book)
+      book_count = n_distinct(book),
+      books = paste0(sort(unique(book)), collapse = "<br>")
     ) %>%
     mutate(timeframe = "previous")
   bind_rows(all_summary, current_summary, previous_summary)
 }
 
-bookmakers <- get_ratings_summary("bookmaker") %>%
-  filter(!is.na(bookmaker))
 books <- get_ratings_summary("book") %>%
   join(book_to_maker, by = "book") %>%
   join(
@@ -209,13 +206,76 @@ books <- get_ratings_summary("book") %>%
   ) %>%
   ungroup()
 
-raters <- get_ratings_summary("rater") %>%
-  filter(rater != "Guest")
+bookmakers <- get_ratings_summary("bookmaker") |>
+  filter(bookmaker != guest_factor) |>
+  left_join(
+    books |>
+      arrange(desc(average)) |>
+      group_by(bookmaker, timeframe) |>
+      summarise(
+        book_averages = paste0(
+          book, ": ",
+          format(round(average, 2), nsmall = 2),
+          collapse = "<br>"
+        )
+      ),
+    by = c("bookmaker", "timeframe")
+  ) |>
+  left_join(
+    books |>
+      arrange(desc(stdev)) |>
+      group_by(bookmaker, timeframe) |>
+      summarise(
+        book_stdevs = paste0(
+          book, ": ",
+          format(round(stdev, 2), nsmall = 2),
+          collapse = "<br>"
+        )
+      ),
+    by = c("bookmaker", "timeframe")
+  )
+
+rater_books_ranked <- bind_rows(
+  mutate(ratings, timeframe = "all"),
+  mutate(ratings, timeframe = if_else(current, "current", "previous"))
+) |>
+  select(rater, book, rating, timeframe) |>
+  group_by(rater, timeframe) |>
+  mutate(
+    least_favorite = rating == min(rating),
+    favorite = rating == max(rating)
+  ) |>
+  filter(least_favorite | favorite) |>
+  group_by(rater, timeframe) |>
+  summarise(
+    favorite_books = paste0(
+      "<b>Favorites: (rating=", max(rating), ")</b><br>",
+      paste0(book[favorite], collapse = "<br>")
+    ),
+    least_favorite_books = paste0(
+      "<b>Least favorites: (rating=", min(rating), ")</b><br>",
+      paste0(book[!favorite], collapse = "<br>")
+    ),
+  ) |>
+  unite(
+    "ranked_books",
+    c(favorite_books, least_favorite_books),
+    sep = "<br><br>",
+    remove = TRUE
+  )
+
+raters <- get_ratings_summary("rater") |>
+  filter(rater != guest_factor) |>
+  left_join(
+    rater_books_ranked,
+    by = c("rater", "timeframe")
+  )
+
 raters_bookmakers <- get_ratings_summary(c("rater", "bookmaker")) %>%
   filter(
-    rater != "Brandon", bookmaker != "Brandon",
     !is.na(rater),
-    timeframe == "all"
+    timeframe == "all",
+    bookmaker != guest_factor
   ) %>%
   select(rater, bookmaker, average) %>%
   pivot_wider(names_from = bookmaker, values_from = average) %>%
@@ -256,7 +316,7 @@ cors_long <- as.data.frame.table(
     responseName = "cor",
     stringsAsFactors = FALSE
   ) %>%
-  filter(Var1 > Var2) %>%
+  filter(Var1 < Var2) %>%
   mutate(pair_name = paste(Var1, "&", Var2)) %>%
   select(-Var1, -Var2) %>%
   arrange(-cor)
@@ -352,6 +412,22 @@ for (timeframe in c("all", "current")) {
     "books"
   )
 
+  books |>
+    filter(timeframe == !!timeframe) |>
+    inner_join(meta_data, by = "book") |>
+    summarise(pages = sum(pages)) |>
+    mutate(pages) |>
+    pull() |>
+    scales::label_comma(
+      accuracy = 0.1,
+      scale_cut = scales::cut_short_scale(),
+    )() |>
+    set_result_value(
+      timeframe,
+      "summary",
+      "pages"
+    )
+
   if (timeframe == "all") {
     set_result_value(
       filter(bookmakers, timeframe == "all") %>%
@@ -401,14 +477,14 @@ set_result_value(
 ```
 
 ```{r make-functions}
-# TODO: Make it so I can display only X items (top, bottom, and this year)
 make_bar_plot <- function(
   df,
   group,
   metric,
   color = "bookmaker",
   timeframe = "current",
-  meta = NA
+  meta = NA,
+  limit = NA
 ) {
   highlight_current <- (group == "book") & (timeframe == "all")
   hovertemplate <- "%{x:.2f}"
@@ -417,27 +493,61 @@ make_bar_plot <- function(
     filter(timeframe == !!timeframe) %>%
     arrange(across(all_of(metric), desc))
 
-  if(!is.na(meta)) {
-    meta <- df[[meta]]
-    hovertemplate <- paste0(hovertemplate, "<br>%{meta}")
-  }
-
-  if(highlight_current) {
+  if (highlight_current) {
     df <- df %>%
-    mutate(
-      book = if_else(
-        year == params$year,
-        paste0("<span style='color:red'>*", book, "</span>"),
-        book
+      mutate(
+        book = if_else(
+          year == params$year,
+          paste0("<span style='color:red'>*", book, "</span>"),
+          book
+        )
       )
-    )
   }
 
   xaxis_title <- switch(metric,
     "average" = "Avg Rating",
     "std" = "Std. Deviation"
   )
-  
+
+  if (!is.na(limit)) {
+    df <- df %>%
+      mutate(
+        keep = (
+          dense_rank(desc(!!sym(metric))) <= limit |
+          dense_rank(!!sym(metric)) <= limit |
+          year == params$year |
+          lag(year) == params$year |
+          lead(year) == params$year
+        ),
+        limit_group = cumsum(keep | (!keep & lag(keep, default = FALSE))),
+      )
+    df_limit <- df %>%
+      group_by(limit_group) %>%
+      mutate(book_count = n()) %>%
+      filter(!keep, book_count > 1) %>%
+      ungroup() %>%
+      mutate(limit_group = as.numeric(factor(limit_group))) %>%
+      group_by(limit_group) %>%
+      summarise(
+        recap = paste(book, collapse = "<br>"),
+        book = paste0(
+          "...",
+          strrep("\u200B", limit_group[1])
+        ),
+        bookmaker = other_factor,
+        across(all_of(metric), ~ mean(.x))
+      ) %>%
+      select(-limit_group)
+
+    df <- bind_rows(df_limit, filter(df, keep)) %>%
+      arrange(across(all_of(c(metric, group)), desc))
+  }
+
+  if (!is.na(meta)) {
+    meta <- df[[meta]]
+    hovertemplate <- paste0(hovertemplate, "<br>%{meta}")
+  }
+
   p <- plot_ly(
       type="bar",
       y=df[[group]],
@@ -445,7 +555,7 @@ make_bar_plot <- function(
       color=df[[color]],
       colors = bookmaker_info$color,
       # legendgroup="group1",  # Can't filter to one legend item
-      orientation="h",
+      orientation = "h",
       meta = meta,
       hovertemplate = hovertemplate
     ) %>%
@@ -458,7 +568,7 @@ make_bar_plot <- function(
       showlegend = color != group
     ) %>%
     config(displayModeBar = FALSE)
-    p
+  p
 }
 ```
 ```{r make-meta-cors}
@@ -466,10 +576,19 @@ meta_cors <- ratings %>%
   group_by(rater) %>%
   summarise(
     across(c(publish_year, pages, goodreads_rating), ~ cor(.x, rating)),
+  ) %>%
+  drop_na() %>%
+  bind_rows(
+    ratings %>%
+      summarise(
+        across(c(publish_year, pages, goodreads_rating), ~ cor(.x, rating)),
+      ) %>%
+      mutate(rater = overall_factor)
   )
 
 # Categorical meta vars
 meta_ratings_diffs <- ratings %>%
+  bind_rows(mutate(ratings, rater = overall_factor)) %>%
   select(rater, rating, genre, gender) %>%
   pivot_longer(cols = -c(rater, rating)) %>%
   pivot_wider(
@@ -478,13 +597,15 @@ meta_ratings_diffs <- ratings %>%
     values_from = rating,
     values_fn=mean
   ) %>%
-  mutate(  # Do not change these orders without updating elsewhere too
+  mutate(  # Do not change these orders without updating downstream too
     genre = `Fiction` - `Non-fiction`,
     gender = `Female` - `Male`
   ) %>%
   select(rater, genre, gender)
 ```
-# Summary Data
+[Source rating data](https://docs.google.com/spreadsheets/d/10o_hAeYeQOCet3tj5Mu2wj8dxeeu9ItoTNb9mbCBjV0/edit?usp=drivesdk)
+
+# Overview
 ```{r pull-summary-numbers}
 summary_number <- function(metric) {
   list(
@@ -497,7 +618,8 @@ df <- data.frame(
     "Current cycle",
     "Books read",
     "Number of ratings",
-    "Avg days between meetings"
+    "Avg days between meetings",
+    "Pages read"
   ),
   current = c(
     "",
@@ -507,7 +629,8 @@ df <- data.frame(
       as.integer(summary_number("days_since")$current) /
         as.integer(summary_number("books")$current),
       1
-    )
+    ),
+    summary_number("pages")$current
   ),
   all = c(
     summary_number("cycle")$all,
@@ -517,7 +640,8 @@ df <- data.frame(
       as.integer(summary_number("days_since")$all) /
         as.integer(summary_number("books")$all),
       1
-    )
+    ),
+    summary_number("pages")$all
   )
 )
 df %>%
@@ -529,7 +653,7 @@ df %>%
   ) %>%
   kable_styling()
 ```
-## Books read this year
+# Books read this year
 ```{r, results="asis"}
 temp <- ratings %>%
   filter(year == params$year) %>%
@@ -539,7 +663,7 @@ temp <- ratings %>%
   distinct() %>%
   arrange(date) %>%
   mutate(
-    output = glue("{row_number()}. *{book}*: {recap} ({bookmaker})")
+    output = glue("{row_number()}. {bookmaker}'s *{book}*: {recap}")
   )
 cat(temp$output, sep="\n")
 ```
@@ -549,17 +673,20 @@ analysis_sections <- list(
     title = "Books",
     dataset = "books",
     group = "book",
-    meta = "recap"
+    meta = "recap",
+    limits = c(10, NA, 1)
   ),
   bookmakers = list(
     title = "Bookmakers",
     dataset = "bookmakers",
-    group = "bookmaker"
+    group = "bookmaker",
+    meta = c("book_averages", "book_stdevs")
   ),
   raters = list(
     title = "Raters",
     dataset = "raters",
     group = "rater",
+    meta = c("ranked_books", NA),
     section1_title = "Highest / Lowest",
     section1_metrics = c("Highest", "Lowest"),
     section2_title = "Most / Least Variable",
@@ -580,7 +707,7 @@ cat(unlist(res), sep = "\n")
 
 # Preference Similarity
 
-## Most / Least Similar
+## Similarity rankings
 
 Most: `r get_result_value("all", "cors", "pairwise", "max")`
 
@@ -588,29 +715,45 @@ Least: `r get_result_value("all", "cors", "pairwise", "min")`
 
 ```{r corr-plot}
 # TODO: compare this to last year (do the same for all the ones that are "all" only)
+# TODO: box or violin plots for all(?) sections
 mat <- cors
 diag(mat) <- NA
-max_cors <- apply(mat, 1, max, na.rm = TRUE)
-min_cors <- apply(mat, 1, min, na.rm = TRUE)
 
-p <- corrplot::corrplot(
-  cors,
-  method = 'ellipse',
-  order = 'hclust',
-  # addrect = 3,  # TODO: Determine this programatically
-  type='full',
-  diag=FALSE,
-  addCoef.col = "black",
-  number.cex = .75,
-  tl.col="black",
-  tl.pos = 'd',
-  tl.cex = 0.75,
-  p.mat = mat == max_cors | mat == min_cors,
-  insig = "pch",
-  pch = 0,
-  pch.cex = 5,
-  pch.col = "#D3D3D3"
+ranking_df <- apply(mat, 1, function(x) {
+  names(sort(x, decreasing = TRUE, na.last = NA))
+})
+ranking_df <- as.data.frame(t(ranking_df))
+colnames(ranking_df) <- column_names <- c(
+  "Most",
+  "2nd",
+  "3rd",
+  paste0(seq(4, ncol(ranking_df) - 1), "th"),
+  "Least"
 )
+
+values_df <- as.data.frame(t(apply(mat, 1, function(x) {
+  sort(x, decreasing = TRUE, na.last = NA)
+})))
+color_func <- function(x) {
+  scales::col_numeric(
+    palette = c("#ef8a62", "#f7f7f7", "#67a9cf"),
+    domain = c(-1, 1)
+  )(x)
+}
+
+final_table <- ranking_df |>
+  kable(escape = FALSE) |>
+  kable_styling("striped", full_width = FALSE)
+for (i in seq_len(ncol(ranking_df))) {
+  final_table <- final_table |>
+    column_spec(
+      i + 1,
+      background = color_func(values_df[[i]]),
+      color = ifelse(values_df[[i]] > 0.7, "white", "black")
+    )
+}
+
+final_table
 ```
 
 ## Couple & Sibling Pairs
