@@ -115,7 +115,7 @@ make_bar_plot(
 ```
 <!-- TODO: Move additional chunks to their own files and add them as a paramter in the analysis list -->
 ```{r, eval = (dataset == "raters") & (params$year > 2020), results = "asis"}
-source("likert.r")
+source("likert.r", local = TRUE)
 liker_results <- get_liker()
 cat("## Rating distribution", sep = "\n")
 ```
@@ -166,7 +166,7 @@ df %>%
 ```
 ```{r, eval = (dataset == "raters") & (params$year > 2020), results = "asis"}
 cat("## Renegades", sep = "\n")
-source("renegade.r")
+source("renegade.r", local = TRUE)
 renegade_results <- get_renegade()
 
 cat(paste("Biggest lover:", renegade_results$biggest_lovers), "\n\n")
