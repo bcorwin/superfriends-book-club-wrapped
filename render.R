@@ -3,7 +3,7 @@ args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) == 0) {
   current_year <- as.integer(format(Sys.Date(), "%Y")) - 1
-  # years <- seq(2021, current_year)
+  years <- seq(2021, current_year)
 } else {
   years <- args
 }
